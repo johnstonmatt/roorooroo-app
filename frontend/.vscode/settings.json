@@ -1,0 +1,21 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.turbo": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/coverage": true,
+    "**/.DS_Store": true,
+    "**/*.log": true,
+    "**/.pnpm-store": true,
+    "**/.vercel": true,
+    "**/target": true,
+    "tsconfig.json": true,
+    "tsconfig.tsbuildinfo": true,
+    "pnpm-lock.yaml": true,
+    "postcss.config.mjs": true,
+    "next.config.mjs": true,
+    "next-env.d.ts": true
+  }
+}

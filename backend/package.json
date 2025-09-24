@@ -1,0 +1,14 @@
+{
+  "name": "roorooroo-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "build": "echo 'no-op backend build'",
+    "start": "node src/index.js"
+  },
+  "devDependencies": {
+    "supabase": "^2.45.5"
+  }
+}
