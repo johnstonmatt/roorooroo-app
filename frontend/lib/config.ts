@@ -20,6 +20,7 @@ interface SMSLimits {
 interface AppConfig {
   twilio: TwilioConfig
   smsLimits: SMSLimits
+  apiBaseUrl: string
   isDevelopment: boolean
   isProduction: boolean
 }
@@ -80,6 +81,7 @@ export function getConfig(): AppConfig {
       maxMonthlyCostUSD: parseInt(process.env.SMS_MAX_MONTHLY_COST || '100'),
       costPerSMSUSD: parseFloat(process.env.SMS_COST_PER_MESSAGE || '0.0075') // Twilio US rate
     },
+    apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:54321/functions/v1/api',
     isDevelopment,
     isProduction
   }

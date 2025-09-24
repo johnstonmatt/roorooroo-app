@@ -1,5 +1,5 @@
 -- =============================================================
--- Script: 003_update_notifications_table.sql
+-- Script: 20240101000002_update_notifications_table.sql
 -- Purpose: Extend notifications for SMS, tracking, and create helper view
 -- Safety: Idempotent; uses IF NOT EXISTS and OR REPLACE
 -- Notes: RLS is on base table; views don't support RLS. Use grants instead.

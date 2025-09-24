@@ -1,46 +1,78 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+'use client'
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { api, ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { NotificationsList } from "@/components/notifications-list"
 
-export default async function NotificationsPage() {
-  const supabase = await createClient()
-
-  // Check authentication
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-  if (userError || !user) {
-    redirect("/auth/login")
+interface Notification {
+  id: string
+  type: string
+  channel: string
+  message: string
+  status: string
+  error_message: string | null
+  sent_at: string
+  monitors: {
+    name: string
+    url: string
   }
+}
 
-  // Get user's notifications with all fields needed for SMS support
-  const { data: notifications, error: notificationsError } = await supabase
-    .from("notifications")
-    .select(
-      `
-      id,
-      type,
-      channel,
-      message,
-      status,
-      error_message,
-      sent_at,
-      monitors (
-        name,
-        url
-      )
-    `,
+export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        // Check authentication
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          router.push("/auth/login")
+          return
+        }
+
+        // Get user's notifications using the new API endpoint
+        try {
+          const notifications = await api.get("/notifications")
+          setNotifications(notifications || [])
+        } catch (error) {
+          console.error("Error fetching notifications:", error)
+          if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {
+            router.push('/auth/login')
+            return
+          }
+        }
+      } catch (error) {
+        console.error("Error loading notifications:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadNotifications()
+  }, [router, supabase])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🔔</div>
+          <p className="text-orange-600">Loading notifications...</p>
+        </div>
+      </div>
     )
-    .eq("user_id", user.id)
-    .order("sent_at", { ascending: false })
-    .limit(50)
-
-  if (notificationsError) {
-    console.error("Error fetching notifications:", notificationsError)
   }
 
   return (

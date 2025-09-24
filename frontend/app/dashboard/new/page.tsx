@@ -3,6 +3,7 @@
 import React from "react"
 
 import { createClient } from "@/lib/supabase/client"
+import { api, ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -29,18 +30,10 @@ export default function NewMonitorPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      // Get current user
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-      if (userError || !user) throw new Error("Please sign in to create a monitor")
-
       // Validate URL
       try {
         new URL(url)
@@ -67,9 +60,8 @@ export default function NewMonitorPage() {
         address: channel.address.trim()
       }))
 
-      // Create monitor
-      const { error: insertError } = await supabase.from("monitors").insert({
-        user_id: user.id,
+      // Create monitor using the new API endpoint
+      await api.post("/monitors", {
         name: name.trim(),
         url: url.trim(),
         pattern: pattern.trim(),
@@ -78,10 +70,12 @@ export default function NewMonitorPage() {
         notification_channels: channelsForDb,
       })
 
-      if (insertError) throw insertError
-
       router.push("/dashboard")
     } catch (error: unknown) {
+      if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {
+        router.push('/auth/login')
+        return
+      }
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setIsLoading(false)

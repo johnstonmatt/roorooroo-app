@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ExternalLink, Trash2, Play, Pause, Clock, Globe, TestTube } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { api } from "@/lib/api-client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -36,9 +37,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
   const toggleActive = async () => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.from("monitors").update({ is_active: !monitor.is_active }).eq("id", monitor.id)
-
-      if (error) throw error
+      await api.put(`/monitors/${monitor.id}`, { is_active: !monitor.is_active })
       router.refresh()
     } catch (error) {
       console.error("Error toggling monitor:", error)
@@ -54,9 +53,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
 
     setIsDeleting(true)
     try {
-      const { error } = await supabase.from("monitors").delete().eq("id", monitor.id)
-
-      if (error) throw error
+      await api.delete(`/monitors/${monitor.id}`)
       router.refresh()
     } catch (error) {
       console.error("Error deleting monitor:", error)
@@ -68,15 +65,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
   const testMonitor = async () => {
     setIsTesting(true)
     try {
-      const response = await fetch("/api/monitors/check", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ monitorId: monitor.id }),
-      })
-
-      const result = await response.json()
+      const result = await api.post("/monitors/check", { monitorId: monitor.id })
 
       if (result.success) {
         alert(`Test completed!\nStatus: ${result.status}\nResponse time: ${result.responseTime}ms`)

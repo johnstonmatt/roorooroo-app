@@ -1,13 +1,13 @@
+'use client'
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
-export default async function AuthErrorPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error: string }>
-}) {
-  const params = await searchParams
+export default function AuthErrorPage() {
+  const searchParams = useSearchParams()
+  const error = searchParams.get('error')
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-6">
@@ -24,8 +24,8 @@ export default async function AuthErrorPage({
           <CardContent className="text-center">
             <div className="mb-6">
               <div className="text-4xl mb-4">😞</div>
-              {params?.error ? (
-                <p className="text-sm text-red-600 mb-4">Error: {params.error}</p>
+              {error ? (
+                <p className="text-sm text-red-600 mb-4">Error: {error}</p>
               ) : (
                 <p className="text-sm text-red-600 mb-4">An unexpected error occurred during authentication.</p>
               )}

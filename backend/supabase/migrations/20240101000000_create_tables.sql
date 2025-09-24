@@ -1,5 +1,5 @@
 -- =============================================================
--- Script: 001_create_tables.sql
+-- Script: 20240101000000_create_tables.sql
 -- Purpose: Bootstrap core tables, RLS policies, and indexes
 -- Safety: Idempotent (uses IF NOT EXISTS where supported)
 -- Notes:
@@ -66,73 +66,73 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 -- Note: CREATE POLICY does not support IF NOT EXISTS; adjust in migrations if renaming
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_select_own'
   ) THEN
     CREATE POLICY "profiles_select_own" ON public.profiles FOR SELECT USING (auth.uid() = id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_insert_own'
   ) THEN
     CREATE POLICY "profiles_insert_own" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_update_own'
   ) THEN
     CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (auth.uid() = id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_delete_own'
   ) THEN
     CREATE POLICY "profiles_delete_own" ON public.profiles FOR DELETE USING (auth.uid() = id);
   END IF;
-END $$;
+END $;
 
 -- Monitors policies
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'monitors' AND policyname = 'monitors_select_own'
   ) THEN
     CREATE POLICY "monitors_select_own" ON public.monitors FOR SELECT USING (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'monitors' AND policyname = 'monitors_insert_own'
   ) THEN
     CREATE POLICY "monitors_insert_own" ON public.monitors FOR INSERT WITH CHECK (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'monitors' AND policyname = 'monitors_update_own'
   ) THEN
     CREATE POLICY "monitors_update_own" ON public.monitors FOR UPDATE USING (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'monitors' AND policyname = 'monitors_delete_own'
   ) THEN
     CREATE POLICY "monitors_delete_own" ON public.monitors FOR DELETE USING (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
 -- Monitor logs policies
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'monitor_logs' AND policyname = 'monitor_logs_select_own'
   ) THEN
@@ -145,9 +145,9 @@ DO $$ BEGIN
         )
       );
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'monitor_logs' AND policyname = 'monitor_logs_insert_system'
   ) THEN
@@ -160,24 +160,24 @@ DO $$ BEGIN
         )
       );
   END IF;
-END $$;
+END $;
 
 -- Notifications policies
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'notifications' AND policyname = 'notifications_select_own'
   ) THEN
     CREATE POLICY "notifications_select_own" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'notifications' AND policyname = 'notifications_insert_own'
   ) THEN
     CREATE POLICY "notifications_insert_own" ON public.notifications FOR INSERT WITH CHECK (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_monitors_user_id ON public.monitors(user_id);

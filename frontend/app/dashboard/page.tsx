@@ -1,48 +1,107 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+'use client'
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { api, ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Plus, Bell } from "lucide-react"
 import { MonitorCard } from "@/components/monitor-card"
+import type { User } from "@supabase/supabase-js"
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
+interface Profile {
+  id: string
+  display_name: string | null
+}
 
-  // Check authentication
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-  if (userError || !user) {
-    redirect("/auth/login")
+interface Monitor {
+  id: string
+  user_id: string
+  name: string
+  url: string
+  is_active: boolean
+  created_at: string
+}
+
+export default function DashboardPage() {
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [monitors, setMonitors] = useState<Monitor[]>([])
+  const [todayNotificationCount, setTodayNotificationCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Check authentication
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          router.push("/auth/login")
+          return
+        }
+
+        setUser(user)
+
+        // Get user profile
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+        setProfile(profile)
+
+        // Get user's monitors using the new API endpoint
+        try {
+          const monitors = await api.get("/monitors")
+          setMonitors(monitors || [])
+        } catch (error) {
+          console.error("Error fetching monitors:", error)
+          if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {
+            router.push('/auth/login')
+            return
+          }
+        }
+
+        // Get notifications count using the new API endpoint
+        try {
+          const notifications = await api.get("/notifications?since=24h")
+          setTodayNotificationCount(notifications?.length || 0)
+        } catch (error) {
+          console.error("Error fetching notifications count:", error)
+          if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {
+            router.push('/auth/login')
+            return
+          }
+          setTodayNotificationCount(0)
+        }
+      } catch (error) {
+        console.error("Error loading dashboard data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [router, supabase])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🐕</div>
+          <p className="text-orange-600">Loading your watchers...</p>
+        </div>
+      </div>
+    )
   }
 
-  // Get user profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  // Get user's monitors
-  const { data: monitors, error: monitorsError } = await supabase
-    .from("monitors")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-
-  if (monitorsError) {
-    console.error("Error fetching monitors:", monitorsError)
-  }
-
-  const { data: notifications, error: notificationsError } = await supabase
-    .from("notifications")
-    .select("id")
-    .eq("user_id", user.id)
-    .gte("sent_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
-
-  const todayNotificationCount = notifications?.length || 0
-
-  const activeMonitors = monitors?.filter((m) => m.is_active) || []
-  const inactiveMonitors = monitors?.filter((m) => !m.is_active) || []
+  const activeMonitors = monitors.filter((m) => m.is_active)
+  const inactiveMonitors = monitors.filter((m) => !m.is_active)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">

@@ -1,5 +1,5 @@
 -- =============================================================
--- Script: 004_create_sms_usage_table.sql
+-- Script: 20240101000003_create_sms_usage_table.sql
 -- Purpose: Create sms_usage table, RLS, indexes, and triggers
 -- Safety: Idempotent; uses IF NOT EXISTS and OR REPLACE
 -- =============================================================
@@ -43,35 +43,35 @@ CREATE INDEX IF NOT EXISTS idx_sms_usage_updated_at ON public.sms_usage(updated_
 ALTER TABLE public.sms_usage ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only access their own usage data
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'Users can view own SMS usage'
   ) THEN
     CREATE POLICY "Users can view own SMS usage" ON public.sms_usage
       FOR SELECT USING (auth.uid() = user_id);
   END IF;
-END $$;
+END $;
 
 -- Policy: System can insert/update usage data (for rate limiting service)
 -- Caution: This wide policy allows all authenticated users to manage all rows.
 -- Prefer using service role (bypass RLS) from server, or restrict by auth.uid().
-DO $$ BEGIN
+DO $ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'System can manage SMS usage'
   ) THEN
     CREATE POLICY "System can manage SMS usage" ON public.sms_usage
       FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
-END $$;
+END $;
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION public.update_sms_usage_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$ LANGUAGE plpgsql;
 
 -- Trigger to automatically update updated_at
 DROP TRIGGER IF EXISTS update_sms_usage_updated_at ON public.sms_usage;
