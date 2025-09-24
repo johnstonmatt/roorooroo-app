@@ -1,0 +1,22 @@
+{
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.6.3",
+    "@hono/hono/cors": "jsr:@hono/hono@^4.6.3/cors",
+    "@hono/hono/jwt": "jsr:@hono/hono@^4.6.3/jwt",
+    "@std/crypto": "jsr:@std/crypto@^1.0.3",
+    "@std/encoding": "jsr:@std/encoding@^1.0.5",
+    "@std/uuid": "jsr:@std/uuid@^1.0.4",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@^2.45.4"
+  },
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-read --watch index.ts",
+    "start": "deno run --allow-net --allow-env --allow-read index.ts",
+    "check": "deno check index.ts"
+  }
+}
