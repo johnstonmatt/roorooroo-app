@@ -1,5 +1,4 @@
 {
-  "explorer.excludeGitIgnore": true,
   "files.exclude": {
     "**/node_modules": true,
     "**/.turbo": true,
@@ -12,13 +11,11 @@
     "**/.pnpm-store": true,
     "**/.vercel": true,
     "**/target": true,
-    // hide noise
-    "vitest.config.ts": true,
-    "vitest.setup.ts": true,
     "tsconfig.json": true,
-    "postcss.config.mjs": true,
+    "tsconfig.tsbuildinfo": true,
     "pnpm-lock.yaml": true,
+    "postcss.config.mjs": true,
     "next.config.mjs": true,
     "next-env.d.ts": true
-}
+  }
 }

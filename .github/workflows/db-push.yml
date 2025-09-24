@@ -1,0 +1,43 @@
+name: Push DB on tag
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  db-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: polyseam/tag-matches-version@v1
+        with:
+          file-path: "package.json"
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client | cat
+
+      - name: Validate DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is missing" >&2
+            exit 1
+          fi
+
+      - name: Apply SQL scripts in order
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/001_create_tables.sql | cat
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/002_create_profile_trigger.sql | cat
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/003_update_notifications_table.sql | cat
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/004_create_sms_usage_table.sql | cat
+
+      - name: Tag summary
+        run: echo "Applied DB scripts for tag $GITHUB_REF_NAME"
+
