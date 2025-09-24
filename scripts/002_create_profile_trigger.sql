@@ -1,3 +1,11 @@
+-- =============================================================
+-- Script: 002_create_profile_trigger.sql
+-- Purpose: Create profile on auth user insert; maintain updated_at columns
+-- Safety: Idempotent; drops/recreates trigger, uses OR REPLACE for functions
+-- =============================================================
+
+BEGIN;
+
 -- Create function to handle new user profile creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -37,12 +45,16 @@ END;
 $$;
 
 -- Add updated_at triggers
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_monitors_updated_at ON public.monitors;
 CREATE TRIGGER update_monitors_updated_at
   BEFORE UPDATE ON public.monitors
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
+
+COMMIT;

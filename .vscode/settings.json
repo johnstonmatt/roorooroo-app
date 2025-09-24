@@ -1,0 +1,24 @@
+{
+  "explorer.excludeGitIgnore": true,
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.turbo": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/coverage": true,
+    "**/.DS_Store": true,
+    "**/*.log": true,
+    "**/.pnpm-store": true,
+    "**/.vercel": true,
+    "**/target": true,
+    // hide noise
+    "vitest.config.ts": true,
+    "vitest.setup.ts": true,
+    "tsconfig.json": true,
+    "postcss.config.mjs": true,
+    "pnpm-lock.yaml": true,
+    "next.config.mjs": true,
+    "next-env.d.ts": true
+}
+}

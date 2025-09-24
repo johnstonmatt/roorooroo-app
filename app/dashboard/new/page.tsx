@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { NotificationChannels, type NotificationChannel } from "@/components/notification-channels"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import Link from "next/link"
@@ -21,7 +22,7 @@ export default function NewMonitorPage() {
   const [pattern, setPattern] = useState("")
   const [patternType, setPatternType] = useState("contains")
   const [checkInterval, setCheckInterval] = useState("300")
-  const [notificationEmail, setNotificationEmail] = useState("")
+  const [notificationChannels, setNotificationChannels] = useState<NotificationChannel[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -47,6 +48,25 @@ export default function NewMonitorPage() {
         throw new Error("Please enter a valid URL")
       }
 
+      // Validate required fields
+      if (!name.trim()) {
+        throw new Error("Monitor name is required")
+      }
+      if (!pattern.trim()) {
+        throw new Error("Pattern to watch is required")
+      }
+
+      // Validate notification channels
+      if (notificationChannels.length === 0) {
+        throw new Error("At least one notification channel is required")
+      }
+
+      // Prepare notification channels for database
+      const channelsForDb = notificationChannels.map(channel => ({
+        type: channel.type,
+        address: channel.address.trim()
+      }))
+
       // Create monitor
       const { error: insertError } = await supabase.from("monitors").insert({
         user_id: user.id,
@@ -55,14 +75,7 @@ export default function NewMonitorPage() {
         pattern: pattern.trim(),
         pattern_type: patternType,
         check_interval: Number.parseInt(checkInterval),
-        notification_channels: notificationEmail
-          ? [
-              {
-                type: "email",
-                address: notificationEmail.trim(),
-              },
-            ]
-          : [],
+        notification_channels: channelsForDb,
       })
 
       if (insertError) throw insertError
@@ -210,21 +223,21 @@ export default function NewMonitorPage() {
                   <p className="text-xs text-orange-600">How often should we check for changes?</p>
                 </div>
 
-                {/* Notification Email */}
+                {/* Notification Channels */}
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-orange-700 font-medium">
-                    Notification Email (Optional)
+                  <Label className="text-orange-700 font-medium">
+                    Notification Channels
                   </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={notificationEmail}
-                    onChange={(e) => setNotificationEmail(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
+                  <NotificationChannels
+                    channels={notificationChannels}
+                    onChange={setNotificationChannels}
+                    maxChannels={5}
+                    maxEmailChannels={3}
+                    maxSmsChannels={3}
+                    className="border-orange-200"
                   />
                   <p className="text-xs text-orange-600">
-                    Where should we send alerts? Leave blank to use account email
+                    Add email and SMS channels to receive alerts when patterns are detected
                   </p>
                 </div>
 
@@ -238,7 +251,7 @@ export default function NewMonitorPage() {
                   <Button
                     type="submit"
                     className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-                    disabled={isLoading}
+                    disabled={isLoading || notificationChannels.length === 0}
                   >
                     {isLoading ? "Creating Watcher..." : "🐕 Start Watching"}
                   </Button>
@@ -271,6 +284,10 @@ export default function NewMonitorPage() {
               <div>
                 <strong>Pattern Tips:</strong> Be specific but not too narrow. "Buy Now" is better than "Buy Now - Free
                 Shipping".
+              </div>
+              <div>
+                <strong>Notifications:</strong> Add both email and SMS channels for reliable alerts. Phone numbers are
+                validated and formatted automatically.
               </div>
               <div>
                 <strong>Frequency:</strong> More frequent checks use more resources. 5-15 minutes is usually perfect.

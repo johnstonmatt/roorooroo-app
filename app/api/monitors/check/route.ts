@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { NotificationService, type NotificationPayload, type NotificationChannel } from "@/lib/notification-service"
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,9 +95,16 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", monitor.id)
 
-      // Send notification if pattern found and this is a status change
-      if (status === "found" && monitor.last_status !== "found") {
-        await sendNotification(supabase, monitor, "pattern_found", contentSnippet)
+      // Send notifications for status changes
+      try {
+        if (status === "found" && monitor.last_status !== "found") {
+          await sendNotification(supabase, monitor, "pattern_found", contentSnippet)
+        } else if (status === "not_found" && monitor.last_status === "found") {
+          await sendNotification(supabase, monitor, "pattern_lost", null)
+        }
+      } catch (notificationError) {
+        console.error("Failed to send status change notification:", notificationError)
+        // Don't fail the entire request if notification fails
       }
 
       return NextResponse.json({
@@ -125,6 +133,14 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", monitor.id)
 
+      // Send error notification
+      try {
+        await sendNotification(supabase, monitor, "error", null, errorMessage)
+      } catch (notificationError) {
+        console.error("Failed to send error notification:", notificationError)
+        // Don't fail the entire request if notification fails
+      }
+
       return NextResponse.json({
         success: false,
         status: "error",
@@ -137,49 +153,82 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function sendNotification(supabase: any, monitor: any, type: string, contentSnippet: string | null) {
+async function sendNotification(supabase: any, monitor: any, type: string, contentSnippet: string | null, errorMessage?: string) {
   try {
     // Get user profile for notification
     const { data: profile } = await supabase.from("profiles").select("*").eq("id", monitor.user_id).single()
 
-    if (!profile) return
-
-    const notificationChannels = monitor.notification_channels || []
-
-    for (const channel of notificationChannels) {
-      if (channel.type === "email") {
-        const message = `🐕 RooRooRoo Alert!
-
-Your watcher "${monitor.name}" found a match!
-
-Website: ${monitor.url}
-Pattern: "${monitor.pattern}"
-${contentSnippet ? `\nContent found: "${contentSnippet}"` : ""}
-
-Time: ${new Date().toLocaleString()}
-
-View your dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || "https://roorooroo.app"}/dashboard`
-
-        // In a real app, you'd integrate with an email service like Resend, SendGrid, etc.
-        // For now, we'll just log the notification
-        console.log("Email notification:", {
-          to: channel.address,
-          subject: `🐕 RooRooRoo Alert: ${monitor.name}`,
-          message,
-        })
-
-        // Log notification in database
-        await supabase.from("notifications").insert({
-          monitor_id: monitor.id,
-          user_id: monitor.user_id,
-          type,
-          channel: "email",
-          message,
-          status: "sent",
-        })
-      }
+    if (!profile) {
+      console.log("No profile found for user:", monitor.user_id)
+      return
     }
+
+    const notificationChannels: NotificationChannel[] = monitor.notification_channels || []
+    
+    if (notificationChannels.length === 0) {
+      console.log("No notification channels configured for monitor:", monitor.id)
+      return
+    }
+
+    // Create notification payload
+    const payload: NotificationPayload = {
+      monitor: {
+        id: monitor.id,
+        name: monitor.name,
+        url: monitor.url,
+        pattern: monitor.pattern,
+        pattern_type: monitor.pattern_type,
+        user_id: monitor.user_id
+      },
+      type: type as 'pattern_found' | 'pattern_lost' | 'error',
+      contentSnippet,
+      errorMessage
+    }
+
+    // Use NotificationService to send notifications
+    const notificationService = new NotificationService()
+    const results = await notificationService.sendNotifications(payload, notificationChannels)
+
+    // Log results for debugging
+    console.log(`Sent ${results.length} notifications for monitor ${monitor.id}:`)
+    results.forEach((result, index) => {
+      const channel = notificationChannels[index]
+      if (result.success) {
+        console.log(`✓ ${channel.type} to ${channel.address}: ${result.messageId}`)
+      } else {
+        console.error(`✗ ${channel.type} to ${channel.address}: ${result.error}`)
+      }
+    })
+
+    // Return summary of notification results
+    const successful = results.filter(r => r.success).length
+    const failed = results.filter(r => !r.success).length
+    
+    return {
+      total: results.length,
+      successful,
+      failed,
+      results
+    }
+
   } catch (error) {
     console.error("Notification error:", error)
+    
+    // Log the notification failure to database for tracking
+    try {
+      await supabase.from("notifications").insert({
+        monitor_id: monitor.id,
+        user_id: monitor.user_id,
+        type,
+        channel: "system",
+        message: `Failed to send notifications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: "failed",
+        error_message: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } catch (logError) {
+      console.error("Failed to log notification error:", logError)
+    }
+    
+    throw error
   }
 }
