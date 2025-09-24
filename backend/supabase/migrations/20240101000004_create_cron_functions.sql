@@ -26,7 +26,7 @@ BEGIN
   
   -- If api_base_url is not set, use a default (this should be configured in production)
   IF api_url IS NULL OR api_url = '/api/monitors/check' THEN
-    api_url := 'https://your-project.supabase.co/functions/v1/api/monitors/check';
+    api_url := 'https://hfzyljzxjrhvenwjyxlo.supabase.co/functions/v1/api/monitors/check';
   END IF;
 
   -- Create the cron job that will call the monitor check endpoint
@@ -74,7 +74,7 @@ BEGIN
   -- Get the API URL
   api_url := current_setting('app.settings.api_base_url', true) || '/api/monitors/check';
   IF api_url IS NULL OR api_url = '/api/monitors/check' THEN
-    api_url := 'https://your-project.supabase.co/functions/v1/api/monitors/check';
+    api_url := 'https://hfzyljzxjrhvenwjyxlo.supabase.co/functions/v1/api/monitors/check';
   END IF;
 
   -- Create the updated cron job
@@ -167,7 +167,7 @@ GRANT EXECUTE ON FUNCTION list_user_cron_jobs(UUID) TO authenticated;
 -- Function to get detailed cron job information
 CREATE OR REPLACE FUNCTION get_cron_job_info(
   job_name TEXT
-) RETURNS JSON AS $
+) RETURNS JSON AS $$
 DECLARE
   job_info JSON;
 BEGIN
@@ -183,7 +183,7 @@ BEGIN
   
   RETURN job_info;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant execute permissions to authenticated users
 GRANT EXECUTE ON FUNCTION create_monitor_cron_job(TEXT, TEXT, UUID, UUID) TO authenticated;
