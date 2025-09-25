@@ -43,10 +43,10 @@ export default function NotificationsPage() {
           return
         }
 
-        // Get user's notifications using the new API endpoint
+        // Get user's notifications using the API endpoint
         try {
-          const notifications = await api.get("/notifications")
-          setNotifications(notifications || [])
+          const response = await api.get("/notifications")
+          setNotifications(response?.data || [])
         } catch (error) {
           console.error("Error fetching notifications:", error)
           if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {

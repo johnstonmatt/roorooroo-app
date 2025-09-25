@@ -68,7 +68,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
       const result = await api.post("/monitors/check", { monitorId: monitor.id })
 
       if (result.success) {
-        alert(`Test completed!\nStatus: ${result.status}\nResponse time: ${result.responseTime}ms`)
+        alert(`Test completed!\nStatus: ${result.data.status}\nResponse time: ${result.data.responseTime}ms`)
       } else {
         alert(`Test failed: ${result.error}`)
       }

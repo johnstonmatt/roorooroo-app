@@ -43,7 +43,7 @@ export default function DashboardPage() {
           data: { user },
           error: userError,
         } = await supabase.auth.getUser()
-        
+
         if (userError || !user) {
           router.push("/auth/login")
           return
@@ -57,8 +57,8 @@ export default function DashboardPage() {
 
         // Get user's monitors using the new API endpoint
         try {
-          const monitors = await api.get("/monitors")
-          setMonitors(monitors || [])
+          const response = await api.get("/monitors")
+          setMonitors(response?.data || [])
         } catch (error) {
           console.error("Error fetching monitors:", error)
           if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {
@@ -67,10 +67,10 @@ export default function DashboardPage() {
           }
         }
 
-        // Get notifications count using the new API endpoint
+        // Get notifications count from the last 24 hours using API
         try {
-          const notifications = await api.get("/notifications?since=24h")
-          setTodayNotificationCount(notifications?.length || 0)
+          const response = await api.get("/notifications?since=24h")
+          setTodayNotificationCount(response?.data?.length || 0)
         } catch (error) {
           console.error("Error fetching notifications count:", error)
           if ((error instanceof ApiError && error.status === 401) || (error instanceof Error && error.message.includes('401'))) {

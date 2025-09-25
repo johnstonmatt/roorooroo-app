@@ -10,6 +10,7 @@ import { errorHandler, asyncHandler } from './middleware/error-handler.ts'
 import { admin } from './routes/admin.ts'
 import { monitors } from './routes/monitors.ts'
 import { monitorCheck } from './routes/monitor-check.ts'
+import { notifications } from './routes/notifications.ts'
 import { webhooks } from './routes/webhooks.ts'
 
 // Create main Hono application
@@ -52,6 +53,7 @@ app.get('/status', asyncHandler(async (c) => {
       admin: '/api/admin/*',
       monitors: '/api/monitors',
       monitorCheck: '/api/monitors/check',
+      notifications: '/api/notifications',
       webhooks: '/api/webhooks/*'
     }
   })
@@ -78,6 +80,9 @@ app.route('/api/monitors', monitors.use('*', authMiddleware))
 // Monitor check routes - require authentication
 app.route('/api/monitors/check', monitorCheck.use('*', authMiddleware))
 
+// Notifications routes - require authentication
+app.route('/api/notifications', notifications.use('*', authMiddleware))
+
 // Webhook routes - use webhook-specific CORS, no auth required for external webhooks
 app.route('/api/webhooks', webhooks.use('*', webhookCorsMiddleware))
 
@@ -93,6 +98,7 @@ app.all('*', asyncHandler(async (c) => {
       'GET|POST /api/admin/sms-costs',
       'GET /api/monitors',
       'POST /api/monitors/check',
+      'GET /api/notifications',
       'GET|POST /api/webhooks/sms-status'
     ]
   }, 404)
