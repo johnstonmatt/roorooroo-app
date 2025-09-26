@@ -1,7 +1,6 @@
 // Admin SMS cost monitoring routes
 import { Hono } from "jsr:@hono/hono@^4.6.3";
 import { SMSCostMonitor } from "../services/sms-cost-monitor.ts";
-import { asyncHandler } from "../middleware/error-handler.ts";
 import { logger } from "../utils/config.ts";
 
 const admin = new Hono();
@@ -13,7 +12,7 @@ const costMonitor = new SMSCostMonitor();
  */
 admin.get(
   "/sms-costs",
-  asyncHandler(async (c) => {
+  async (c) => {
     try {
       // Get system-wide cost statistics
       const systemStats = await costMonitor.getSystemCostStats();
@@ -62,7 +61,7 @@ admin.get(
         message: error instanceof Error ? error.message : "Unknown error",
       }, 500);
     }
-  }),
+  },
 );
 
 /**
@@ -71,7 +70,7 @@ admin.get(
  */
 admin.post(
   "/sms-costs",
-  asyncHandler(async (c) => {
+  async (c) => {
     try {
       const body = await c.req.json();
       const { action, userId } = body;
@@ -189,7 +188,7 @@ admin.post(
         message: error instanceof Error ? error.message : "Unknown error",
       }, 500);
     }
-  }),
+  },
 );
 
 export { admin };

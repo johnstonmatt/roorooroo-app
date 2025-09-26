@@ -1,6 +1,5 @@
 // Notifications routes
 import { Hono } from "jsr:@hono/hono";
-import { asyncHandler } from "../middleware/error-handler.ts";
 
 const notifications = new Hono();
 
@@ -14,7 +13,7 @@ const notifications = new Hono();
  */
 notifications.get(
   "/",
-  asyncHandler(async (c) => {
+  async (c) => {
     const userId = c.get("userId");
     const supabase = c.get("supabase");
 
@@ -96,7 +95,7 @@ notifications.get(
         message: "An unexpected error occurred while fetching notifications",
       }, 500);
     }
-  }),
+  },
 );
 
 /**

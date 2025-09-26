@@ -1,6 +1,5 @@
 // Monitor checking logic routes
 import { Hono } from "jsr:@hono/hono";
-import { asyncHandler } from "../middleware/error-handler.ts";
 import { validateAndThrow } from "../utils/validation.ts";
 import { NotificationService } from "../services/notification-service.ts";
 
@@ -32,7 +31,7 @@ interface Monitor {
  */
 monitorCheck.post(
   "/",
-  asyncHandler(async (c) => {
+  async (c) => {
     const userId = c.get("userId");
     const supabase = c.get("supabase");
 
@@ -174,7 +173,7 @@ monitorCheck.post(
         message: "An unexpected error occurred while checking the monitor",
       }, 500);
     }
-  }),
+  },
 );
 
 /**

@@ -8,7 +8,7 @@ import {
   authMiddleware,
   // optionalAuthMiddleware,
 } from "./middleware/auth.ts";
-import { errorHandler, syncHandler } from "./middleware/error-handler.ts";
+import { errorHandler } from "./middleware/error-handler.ts";
 
 // Import route handlers
 import { admin } from "./routes/admin.ts";
@@ -18,7 +18,7 @@ import { notifications } from "./routes/notifications.ts";
 import { webhooks } from "./routes/webhooks.ts";
 
 // Create main Hono application
-const api = new Hono().basePath("/api");
+const api = new Hono();
 
 api.use(logger());
 
@@ -38,7 +38,7 @@ api.use("*", async (c, next) => {
 // Health check endpoint (no auth required)
 api.get(
   "/health",
-  syncHandler((c) =>
+  (c) =>
     c.json({
       status: "ok",
       timestamp: new Date().toISOString(),
@@ -46,14 +46,13 @@ api.get(
       environment: Deno.env.get("DENO_DEPLOYMENT_ID")
         ? "production"
         : "development",
-    })
-  ),
+    }),
 );
 
 // Status endpoint with basic system info (no auth required)
 api.get(
   "/status",
-  syncHandler((c) =>
+  (c) =>
     c.json({
       service: "Hono API Server",
       version: "1.0.0",
@@ -71,43 +70,37 @@ api.get(
         notifications: "/notifications",
         webhooks: "/webhooks/*",
       },
-    })
-  ),
+    }),
 );
 
 // Default root route
 api.get(
   "/meta",
-  syncHandler((c) =>
+  (c) =>
     c.json({
       message: "Hono API Server",
       version: "1.0.0",
       documentation: "Visit /status for available endpoints",
       timestamp: new Date().toISOString(),
-    })
-  ),
+    }),
 );
 
 // Webhook routes - use webhook-specific CORS, no auth required for external webhooks
-webhooks.use(webhookCorsMiddleware);
+api.use("/webhooks/*", webhookCorsMiddleware);
 api.route("/webhooks", webhooks);
 
-// API Routes with authentication middleware
-api.use(authMiddleware);
-
-// Monitor routes - require authentication
+// Authenticated routes
+api.use("/monitors/*", authMiddleware);
 api.route("/monitors", monitors);
 
-// Monitor check routes - require authentication
+api.use("/monitors/check/*", authMiddleware);
 api.route("/monitors/check", monitorCheck);
 
-// Notifications routes - require authentication
+api.use("/notifications/*", authMiddleware);
 api.route("/notifications", notifications);
 
-// admin routes - require authentication and admin role
-admin.use(authMiddleware, adminMiddleware);
-
 // Admin routes - require authentication and admin role
+api.use("/admin/*", authMiddleware, adminMiddleware);
 api.route("/admin", admin);
 
 const availableEndpoints = api.routes
@@ -118,13 +111,12 @@ const availableEndpoints = api.routes
 // Catch-all route for undefined endpoints
 api.all(
   "*",
-  syncHandler((c) =>
+  (c) =>
     c.json({
       error: "Not Found",
       message: `Endpoint ${c.req.method} ${c.req.url} not found`,
       availableEndpoints,
-    }, 404)
-  ),
+    }, 404),
 );
 
 // Export the app for Supabase Edge Functions

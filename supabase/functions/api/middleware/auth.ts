@@ -1,17 +1,8 @@
 import { Context, Next } from "jsr:@hono/hono@^4.6.3";
-import { createSupabaseClient } from "../utils/supabase.ts";
-
-function base64UrlToString(s: string) {
-  s = s.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = s.length % 4 === 2 ? "==" : s.length % 4 === 3 ? "=" : "";
-  return atob(s + pad);
-}
-
-function _getJwtClaims(token: string) {
-  const [, payload] = token.split(".");
-  const json = base64UrlToString(payload);
-  return JSON.parse(json);
-}
+import {
+  createSupabaseClient,
+  createSupabaseClientWithAuth,
+} from "../utils/supabase.ts";
 
 /**
  * Authentication middleware that validates Supabase JWT tokens
@@ -36,19 +27,13 @@ export async function authMiddleware(c: Context, next: Next) {
       return c.json({ error: "Invalid or expired token" }, 401);
     }
 
-    console.log("Authenticated user:", user?.email);
-
     // Store user and authenticated supabase client in context
     c.set("user", user);
     c.set("userId", user.id);
     c.set("userEmail", user.email);
 
-    // Create a supabase client with the user's token for RLS
-    const userSupabase = createSupabaseClient();
-    userSupabase.auth.setSession({
-      access_token: token,
-      refresh_token: "",
-    });
+    // Create a Supabase client authenticated as the user for RLS
+    const userSupabase = createSupabaseClientWithAuth(token);
     c.set("supabase", userSupabase);
 
     await next();
@@ -77,16 +62,11 @@ export async function optionalAuthMiddleware(c: Context, next: Next) {
         c.set("userId", user.id);
         c.set("userEmail", user.email);
 
-        const userSupabase = createSupabaseClient();
-        userSupabase.auth.setSession({
-          access_token: token,
-          refresh_token: "",
-        });
+        const userSupabase = createSupabaseClientWithAuth(token);
         c.set("supabase", userSupabase);
       }
-    } catch (error) {
+    } catch {
       // Ignore authentication errors in optional middleware
-      console.warn("Optional auth failed:", error);
     }
   }
 

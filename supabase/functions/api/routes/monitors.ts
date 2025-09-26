@@ -1,6 +1,5 @@
 // Monitor CRUD operations routes
 import { Hono } from "jsr:@hono/hono";
-import { asyncHandler } from "../middleware/error-handler.ts";
 import { commonSchemas, validateAndThrow } from "../utils/validation.ts";
 import { createMonitorCronJob, validateCronJobConfig } from "../utils/cron.ts";
 
@@ -13,11 +12,9 @@ const monitors = new Hono();
  */
 monitors.get(
   "/",
-  asyncHandler(async (c) => {
-    console.log("MONITORS_GET");
+  async (c) => {
     const userId = c.get("userId");
     const supabase = c.get("supabase");
-    console.log("User ID:", userId);
     if (!userId || !supabase) {
       return c.json({ error: "Authentication required" }, 401);
     }
@@ -66,7 +63,7 @@ monitors.get(
         message: "An unexpected error occurred while fetching monitors",
       }, 500);
     }
-  }),
+  },
 );
 
 /**
@@ -76,7 +73,7 @@ monitors.get(
  */
 monitors.post(
   "/",
-  asyncHandler(async (c) => {
+  async (c) => {
     const userId = c.get("userId");
     const supabase = c.get("supabase");
 
@@ -245,7 +242,7 @@ monitors.post(
         message: "An unexpected error occurred while creating the monitor",
       }, 500);
     }
-  }),
+  },
 );
 
 /**
@@ -255,7 +252,7 @@ monitors.post(
  */
 monitors.put(
   "/:id",
-  asyncHandler(async (c) => {
+  async (c) => {
     const userId = c.get("userId");
     const supabase = c.get("supabase");
     const monitorId = c.req.param("id");
@@ -394,7 +391,7 @@ monitors.put(
         message: "An unexpected error occurred while updating the monitor",
       }, 500);
     }
-  }),
+  },
 );
 
 /**
@@ -404,7 +401,7 @@ monitors.put(
  */
 monitors.delete(
   "/:id",
-  asyncHandler(async (c) => {
+  async (c) => {
     const userId = c.get("userId");
     const supabase = c.get("supabase");
     const monitorId = c.req.param("id");
@@ -454,7 +451,7 @@ monitors.delete(
         message: "An unexpected error occurred while deleting the monitor",
       }, 500);
     }
-  }),
+  },
 );
 
 export { monitors };
