@@ -1,40 +1,40 @@
-import { Context } from 'jsr:@hono/hono@^4.6.3'
+import { Context } from "jsr:@hono/hono@^4.6.3";
 
 /**
  * Custom error classes for better error handling
  */
 export class ValidationError extends Error {
   constructor(message: string, public field?: string) {
-    super(message)
-    this.name = 'ValidationError'
+    super(message);
+    this.name = "ValidationError";
   }
 }
 
 export class AuthenticationError extends Error {
-  constructor(message: string = 'Authentication required') {
-    super(message)
-    this.name = 'AuthenticationError'
+  constructor(message: string = "Authentication required") {
+    super(message);
+    this.name = "AuthenticationError";
   }
 }
 
 export class AuthorizationError extends Error {
-  constructor(message: string = 'Insufficient permissions') {
-    super(message)
-    this.name = 'AuthorizationError'
+  constructor(message: string = "Insufficient permissions") {
+    super(message);
+    this.name = "AuthorizationError";
   }
 }
 
 export class NotFoundError extends Error {
-  constructor(message: string = 'Resource not found') {
-    super(message)
-    this.name = 'NotFoundError'
+  constructor(message: string = "Resource not found") {
+    super(message);
+    this.name = "NotFoundError";
   }
 }
 
 export class RateLimitError extends Error {
-  constructor(message: string = 'Rate limit exceeded') {
-    super(message)
-    this.name = 'RateLimitError'
+  constructor(message: string = "Rate limit exceeded") {
+    super(message);
+    this.name = "RateLimitError";
   }
 }
 
@@ -43,85 +43,85 @@ export class RateLimitError extends Error {
  * Catches and formats errors consistently across the API
  */
 export function errorHandler(error: Error, c: Context) {
-  console.error('API Error:', {
+  console.error("API Error:", {
     name: error.name,
     message: error.message,
     stack: error.stack,
     url: c.req.url,
     method: c.req.method,
     headers: Object.fromEntries(c.req.raw.headers.entries()),
-    timestamp: new Date().toISOString()
-  })
+    timestamp: new Date().toISOString(),
+  });
 
   // Handle specific error types
   switch (error.name) {
-    case 'ValidationError':
+    case "ValidationError":
       return c.json({
-        error: 'Validation failed',
+        error: "Validation failed",
         message: error.message,
-        field: (error as ValidationError).field
-      }, 400)
+        field: (error as ValidationError).field,
+      }, 400);
 
-    case 'AuthenticationError':
+    case "AuthenticationError":
       return c.json({
-        error: 'Authentication required',
-        message: error.message
-      }, 401)
+        error: "Authentication required",
+        message: error.message,
+      }, 401);
 
-    case 'AuthorizationError':
+    case "AuthorizationError":
       return c.json({
-        error: 'Insufficient permissions',
-        message: error.message
-      }, 403)
+        error: "Insufficient permissions",
+        message: error.message,
+      }, 403);
 
-    case 'NotFoundError':
+    case "NotFoundError":
       return c.json({
-        error: 'Not found',
-        message: error.message
-      }, 404)
+        error: "Not found",
+        message: error.message,
+      }, 404);
 
-    case 'RateLimitError':
+    case "RateLimitError":
       return c.json({
-        error: 'Rate limit exceeded',
-        message: error.message
-      }, 429)
+        error: "Rate limit exceeded",
+        message: error.message,
+      }, 429);
 
     // Handle Supabase errors
-    case 'PostgrestError':
+    case "PostgrestError":
       return c.json({
-        error: 'Database error',
-        message: 'An error occurred while processing your request'
-      }, 500)
+        error: "Database error",
+        message: "An error occurred while processing your request",
+      }, 500);
 
     // Handle network/fetch errors
-    case 'TypeError':
-      if (error.message.includes('fetch')) {
+    case "TypeError":
+      if (error.message.includes("fetch")) {
         return c.json({
-          error: 'External service error',
-          message: 'Failed to connect to external service'
-        }, 502)
+          error: "External service error",
+          message: "Failed to connect to external service",
+        }, 502);
       }
-      break
+      break;
 
     // Handle JSON parsing errors
-    case 'SyntaxError':
-      if (error.message.includes('JSON')) {
+    case "SyntaxError":
+      if (error.message.includes("JSON")) {
         return c.json({
-          error: 'Invalid JSON',
-          message: 'Request body contains invalid JSON'
-        }, 400)
+          error: "Invalid JSON",
+          message: "Request body contains invalid JSON",
+        }, 400);
       }
-      break
+      break;
   }
 
   // Default error response for unhandled errors
-  const isDevelopment = Deno.env.get('DENO_DEPLOYMENT_ID') === undefined
-  
+  const isDevelopment = Deno.env.get("DENO_DEPLOYMENT_ID") === undefined;
+
   return c.json({
-    error: 'Internal server error',
-    message: isDevelopment ? error.message : 'An unexpected error occurred',
-    ...(isDevelopment && { stack: error.stack })
-  }, 500)
+    error: "Internal server error",
+    message: isDevelopment ? error.message : "An unexpected error occurred",
+    ...(isDevelopment && { stack: error.stack }),
+  }, 500);
 }
 
 /**
@@ -131,19 +131,19 @@ export function errorHandler(error: Error, c: Context) {
 export function asyncHandler(fn: (c: Context) => Promise<Response>) {
   return async (c: Context) => {
     try {
-      return await fn(c)
+      return await fn(c);
     } catch (error) {
-      return errorHandler(error as Error, c)
+      return errorHandler(error as Error, c);
     }
-  }
+  };
 }
 
 /**
  * Validation helper that throws ValidationError
  */
 export function validateRequired(value: any, fieldName: string): void {
-  if (value === undefined || value === null || value === '') {
-    throw new ValidationError(`${fieldName} is required`, fieldName)
+  if (value === undefined || value === null || value === "") {
+    throw new ValidationError(`${fieldName} is required`, fieldName);
   }
 }
 
@@ -151,18 +151,19 @@ export function validateRequired(value: any, fieldName: string): void {
  * Validation helper for email format
  */
 export function validateEmail(email: string): void {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    throw new ValidationError('Invalid email format', 'email')
+    throw new ValidationError("Invalid email format", "email");
   }
 }
 
 /**
  * Validation helper for UUID format
  */
-export function validateUUID(uuid: string, fieldName: string = 'id'): void {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+export function validateUUID(uuid: string, fieldName: string = "id"): void {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(uuid)) {
-    throw new ValidationError(`Invalid ${fieldName} format`, fieldName)
+    throw new ValidationError(`Invalid ${fieldName} format`, fieldName);
   }
 }

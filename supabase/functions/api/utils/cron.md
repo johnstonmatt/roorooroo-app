@@ -1,12 +1,15 @@
 # Cron Job Management Utilities
 
-This module provides utilities for managing Supabase cron jobs for monitor scheduling.
+This module provides utilities for managing Supabase cron jobs for monitor
+scheduling.
 
 ## Features
 
-- **Cron Expression Generation**: Convert check intervals (in seconds) to valid cron expressions
+- **Cron Expression Generation**: Convert check intervals (in seconds) to valid
+  cron expressions
 - **Job Management**: Create, update, and delete monitor-specific cron jobs
-- **Validation**: Comprehensive validation for cron job configurations and expressions
+- **Validation**: Comprehensive validation for cron job configurations and
+  expressions
 - **Error Handling**: Robust error handling with detailed error messages
 - **Batch Operations**: Support for batch creation and deletion of cron jobs
 - **Cleanup**: Utilities to clean up orphaned cron jobs
@@ -19,15 +22,15 @@ Creates a new cron job for a monitor.
 
 ```typescript
 const result = await createMonitorCronJob({
-  monitorId: '123e4567-e89b-12d3-a456-426614174000',
-  userId: '987fcdeb-51a2-43d1-9f12-123456789abc',
-  checkInterval: 300 // 5 minutes
-})
+  monitorId: "123e4567-e89b-12d3-a456-426614174000",
+  userId: "987fcdeb-51a2-43d1-9f12-123456789abc",
+  checkInterval: 300, // 5 minutes
+});
 
 if (result.success) {
-  console.log(`Created job: ${result.jobName}`)
+  console.log(`Created job: ${result.jobName}`);
 } else {
-  console.error(`Failed: ${result.error}`)
+  console.error(`Failed: ${result.error}`);
 }
 ```
 
@@ -44,9 +47,9 @@ Deletes a cron job for a monitor.
 Converts a check interval in seconds to a cron expression.
 
 ```typescript
-intervalToCronExpression(300)   // "*/5 * * * *" (every 5 minutes)
-intervalToCronExpression(3600)  // "0 * * * *" (every hour)
-intervalToCronExpression(86400) // "0 0 * * *" (daily)
+intervalToCronExpression(300); // "*/5 * * * *" (every 5 minutes)
+intervalToCronExpression(3600); // "0 * * * *" (every hour)
+intervalToCronExpression(86400); // "0 0 * * *" (daily)
 ```
 
 ## Utility Functions
@@ -83,14 +86,15 @@ Deletes multiple cron jobs with proper rate limiting.
 
 ## Error Handling
 
-All functions return structured results with success status and detailed error information:
+All functions return structured results with success status and detailed error
+information:
 
 ```typescript
 interface CronJobResult {
-  success: boolean
-  jobName?: string
-  error?: string
-  details?: string
+  success: boolean;
+  jobName?: string;
+  error?: string;
+  details?: string;
 }
 ```
 

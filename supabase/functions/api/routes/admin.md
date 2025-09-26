@@ -1,10 +1,12 @@
 # Admin SMS Costs API
 
-This endpoint provides administrative access to SMS cost monitoring and management.
+This endpoint provides administrative access to SMS cost monitoring and
+management.
 
 ## Authentication
 
 All admin endpoints require:
+
 1. Valid Supabase JWT token in Authorization header: `Bearer <token>`
 2. User must have admin role in their profile
 
@@ -15,6 +17,7 @@ All admin endpoints require:
 Returns system-wide SMS cost statistics and alerts.
 
 **Response:**
+
 ```json
 {
   "systemStats": {
@@ -57,6 +60,7 @@ Returns system-wide SMS cost statistics and alerts.
 Perform administrative actions on SMS cost data.
 
 **Request Body:**
+
 ```json
 {
   "action": "reset-monthly-costs" | "check-user-alert" | "get-user-projection",
@@ -67,9 +71,11 @@ Perform administrative actions on SMS cost data.
 **Actions:**
 
 #### reset-monthly-costs
+
 Resets monthly cost counters for all users (typically run at month start).
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -80,9 +86,11 @@ Resets monthly cost counters for all users (typically run at month start).
 ```
 
 #### check-user-alert
+
 Check if a specific user has cost alerts.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -99,9 +107,11 @@ Check if a specific user has cost alerts.
 ```
 
 #### get-user-projection
+
 Get cost projection for a specific user.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -128,6 +138,7 @@ All endpoints return appropriate HTTP status codes with error details:
 ```
 
 Common status codes:
+
 - `400` - Bad Request (invalid parameters)
 - `401` - Unauthorized (missing or invalid token)
 - `403` - Forbidden (not admin user)

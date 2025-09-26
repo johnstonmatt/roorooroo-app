@@ -1,6 +1,7 @@
 # Hono API Backend
 
-This is the Hono-based backend API running on Supabase Edge Functions, migrated from Next.js API routes.
+This is the Hono-based backend API running on Supabase Edge Functions, migrated
+from Next.js API routes.
 
 ## Project Structure
 
@@ -52,19 +53,23 @@ deno task start
 ## API Endpoints
 
 ### System Endpoints (No Authentication Required)
+
 - `GET /` - Root endpoint with API information
 - `GET /health` - Health check endpoint with system status
 - `GET /status` - Detailed status endpoint with available endpoints
 
 ### Admin Endpoints (Authentication + Admin Role Required)
+
 - `GET /api/admin/sms-costs` - Get SMS cost data
 - `POST /api/admin/sms-costs` - Update SMS cost settings
 
 ### Monitor Endpoints (Authentication Required)
+
 - `GET /api/monitors` - Get user monitors
 - `POST /api/monitors/check` - Execute monitor check
 
 ### Webhook Endpoints (No Authentication Required)
+
 - `GET /api/webhooks/sms-status` - SMS status webhook (GET)
 - `POST /api/webhooks/sms-status` - SMS status webhook (POST)
 
@@ -74,7 +79,8 @@ The main application applies middleware in the following order:
 
 1. **Global Error Handler** - Catches and formats all errors consistently
 2. **CORS Middleware** - Handles cross-origin requests (except webhooks)
-3. **Authentication Middleware** - Validates Supabase JWT tokens (where required)
+3. **Authentication Middleware** - Validates Supabase JWT tokens (where
+   required)
 4. **Admin Middleware** - Validates admin role (for admin endpoints)
 5. **Webhook CORS** - Special CORS handling for webhook endpoints
 
@@ -84,17 +90,20 @@ Routes are organized using Hono's routing system:
 
 - **Admin routes** (`/api/admin/*`) - Require authentication and admin role
 - **Monitor routes** (`/api/monitors`) - Require user authentication
-- **Monitor check routes** (`/api/monitors/check`) - Require user authentication  
-- **Webhook routes** (`/api/webhooks/*`) - Use webhook-specific CORS, no auth required
+- **Monitor check routes** (`/api/monitors/check`) - Require user authentication
+- **Webhook routes** (`/api/webhooks/*`) - Use webhook-specific CORS, no auth
+  required
 
 ## Error Handling
 
 The application includes comprehensive error handling:
 
-- **Custom Error Classes** - ValidationError, AuthenticationError, AuthorizationError, etc.
+- **Custom Error Classes** - ValidationError, AuthenticationError,
+  AuthorizationError, etc.
 - **Async Error Wrapper** - Catches async errors in route handlers
 - **Structured Error Responses** - Consistent error format across all endpoints
-- **Development vs Production** - Different error detail levels based on environment
+- **Development vs Production** - Different error detail levels based on
+  environment
 
 ## Environment Variables
 

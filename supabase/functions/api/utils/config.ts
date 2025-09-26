@@ -5,58 +5,58 @@
 
 interface Config {
   supabase: {
-    url: string
-    anonKey: string
-    serviceRoleKey: string
-  }
+    url: string;
+    anonKey: string;
+    serviceRoleKey: string;
+  };
   twilio: {
-    accountSid: string
-    authToken: string
-    phoneNumber: string
-    webhookUrl?: string
-  }
+    accountSid: string;
+    authToken: string;
+    phoneNumber: string;
+    webhookUrl?: string;
+  };
   frontend: {
-    url: string
-    productionUrl?: string
-  }
+    url: string;
+    productionUrl?: string;
+  };
   app: {
-    environment: 'development' | 'production'
-    logLevel: 'debug' | 'info' | 'warn' | 'error'
-  }
+    environment: "development" | "production";
+    logLevel: "debug" | "info" | "warn" | "error";
+  };
   smsLimits: {
-    maxSMSPerUserPerHour: number
-    maxSMSPerUserPerDay: number
-    maxMonthlyCostUSD: number
-    costPerSMSUSD: number
-  }
+    maxSMSPerUserPerHour: number;
+    maxSMSPerUserPerDay: number;
+    maxMonthlyCostUSD: number;
+    costPerSMSUSD: number;
+  };
 }
 
 /**
  * Get required environment variable or throw error
  */
 function getRequiredEnv(key: string): string {
-  const value = Deno.env.get(key)
+  const value = Deno.env.get(key);
   if (!value) {
-    throw new Error(`Required environment variable ${key} is not set`)
+    throw new Error(`Required environment variable ${key} is not set`);
   }
-  return value
+  return value;
 }
 
 /**
  * Get optional environment variable with default value
  */
 function getOptionalEnv(key: string, defaultValue: string): string {
-  return Deno.env.get(key) || defaultValue
+  return Deno.env.get(key) || defaultValue;
 }
 
 /**
  * Get numeric environment variable with default value
  */
 function getNumericEnv(key: string, defaultValue: number): number {
-  const value = Deno.env.get(key)
-  if (!value) return defaultValue
-  const parsed = parseFloat(value)
-  return isNaN(parsed) ? defaultValue : parsed
+  const value = Deno.env.get(key);
+  if (!value) return defaultValue;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? defaultValue : parsed;
 }
 
 /**
@@ -64,49 +64,58 @@ function getNumericEnv(key: string, defaultValue: number): number {
  */
 export const config: Config = {
   supabase: {
-    url: getRequiredEnv('SUPABASE_URL'),
-    anonKey: getRequiredEnv('SUPABASE_ANON_KEY'),
-    serviceRoleKey: getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY')
+    url: getRequiredEnv("SUPABASE_URL"),
+    anonKey: getRequiredEnv("SUPABASE_ANON_KEY"),
+    serviceRoleKey: getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
   },
   twilio: {
-    accountSid: getRequiredEnv('TWILIO_ACCOUNT_SID'),
-    authToken: getRequiredEnv('TWILIO_AUTH_TOKEN'),
-    phoneNumber: getRequiredEnv('TWILIO_PHONE_NUMBER'),
-    webhookUrl: Deno.env.get('TWILIO_WEBHOOK_URL')
+    accountSid: getRequiredEnv("TWILIO_ACCOUNT_SID"),
+    authToken: getRequiredEnv("TWILIO_AUTH_TOKEN"),
+    phoneNumber: getRequiredEnv("TWILIO_PHONE_NUMBER"),
+    webhookUrl: Deno.env.get("TWILIO_WEBHOOK_URL"),
   },
   frontend: {
-    url: getOptionalEnv('FRONTEND_URL', 'http://localhost:3000'),
-    productionUrl: Deno.env.get('PRODUCTION_FRONTEND_URL')
+    url: getOptionalEnv("FRONTEND_URL", "http://localhost:3000"),
+    productionUrl: Deno.env.get("PRODUCTION_FRONTEND_URL"),
   },
   app: {
-    environment: (Deno.env.get('DENO_DEPLOYMENT_ID') ? 'production' : 'development') as 'development' | 'production',
-    logLevel: (getOptionalEnv('LOG_LEVEL', 'info')) as 'debug' | 'info' | 'warn' | 'error'
+    environment:
+      (Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "development") as
+        | "development"
+        | "production",
+    logLevel: (getOptionalEnv("LOG_LEVEL", "info")) as
+      | "debug"
+      | "info"
+      | "warn"
+      | "error",
   },
   smsLimits: {
-    maxSMSPerUserPerHour: getNumericEnv('SMS_MAX_PER_USER_PER_HOUR', 10),
-    maxSMSPerUserPerDay: getNumericEnv('SMS_MAX_PER_USER_PER_DAY', 50),
-    maxMonthlyCostUSD: getNumericEnv('SMS_MAX_MONTHLY_COST_USD', 25.0),
-    costPerSMSUSD: getNumericEnv('SMS_COST_PER_SMS_USD', 0.0075) // Default Twilio cost
-  }
-}
+    maxSMSPerUserPerHour: getNumericEnv("SMS_MAX_PER_USER_PER_HOUR", 10),
+    maxSMSPerUserPerDay: getNumericEnv("SMS_MAX_PER_USER_PER_DAY", 50),
+    maxMonthlyCostUSD: getNumericEnv("SMS_MAX_MONTHLY_COST_USD", 25.0),
+    costPerSMSUSD: getNumericEnv("SMS_COST_PER_SMS_USD", 0.0075), // Default Twilio cost
+  },
+};
 
 /**
  * Validate that all required configuration is present
  */
 export function validateConfig(): void {
   const requiredKeys = [
-    'SUPABASE_URL',
-    'SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'TWILIO_ACCOUNT_SID',
-    'TWILIO_AUTH_TOKEN',
-    'TWILIO_PHONE_NUMBER'
-  ]
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_AUTH_TOKEN",
+    "TWILIO_PHONE_NUMBER",
+  ];
 
-  const missing = requiredKeys.filter(key => !Deno.env.get(key))
-  
+  const missing = requiredKeys.filter((key) => !Deno.env.get(key));
+
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+    throw new Error(
+      `Missing required environment variables: ${missing.join(", ")}`,
+    );
   }
 }
 
@@ -114,21 +123,21 @@ export function validateConfig(): void {
  * Check if running in development mode
  */
 export function isDevelopment(): boolean {
-  return config.app.environment === 'development'
+  return config.app.environment === "development";
 }
 
 /**
  * Check if running in production mode
  */
 export function isProduction(): boolean {
-  return config.app.environment === 'production'
+  return config.app.environment === "production";
 }
 
 /**
  * Get log level for filtering logs
  */
 export function getLogLevel(): string {
-  return config.app.logLevel
+  return config.app.logLevel;
 }
 
 /**
@@ -136,21 +145,21 @@ export function getLogLevel(): string {
  */
 export const logger = {
   debug: (message: string, ...args: any[]) => {
-    if (['debug'].includes(config.app.logLevel)) {
-      console.debug(`[DEBUG] ${message}`, ...args)
+    if (["debug"].includes(config.app.logLevel)) {
+      console.debug(`[DEBUG] ${message}`, ...args);
     }
   },
   info: (message: string, ...args: any[]) => {
-    if (['debug', 'info'].includes(config.app.logLevel)) {
-      console.info(`[INFO] ${message}`, ...args)
+    if (["debug", "info"].includes(config.app.logLevel)) {
+      console.info(`[INFO] ${message}`, ...args);
     }
   },
   warn: (message: string, ...args: any[]) => {
-    if (['debug', 'info', 'warn'].includes(config.app.logLevel)) {
-      console.warn(`[WARN] ${message}`, ...args)
+    if (["debug", "info", "warn"].includes(config.app.logLevel)) {
+      console.warn(`[WARN] ${message}`, ...args);
     }
   },
   error: (message: string, ...args: any[]) => {
-    console.error(`[ERROR] ${message}`, ...args)
-  }
-}
+    console.error(`[ERROR] ${message}`, ...args);
+  },
+};
