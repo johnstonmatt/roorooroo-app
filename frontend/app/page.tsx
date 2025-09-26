@@ -202,7 +202,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-center mt-8 pt-8 border-t border-orange-200">
-            <p className="text-sm text-orange-600">© 2025 RooRooRoo. Made with <Emoji char="❤️" /> for website watchers everywhere.</p>
+            <p className="text-sm text-orange-600">© 2025 RooRooRoo. dedicated to Ollie <Emoji char="❤️" /><Emoji char="🐾" /></p>
           </div>
         </div>
       </footer>

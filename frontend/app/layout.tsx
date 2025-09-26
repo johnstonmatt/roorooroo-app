@@ -10,9 +10,11 @@ export const metadata: Metadata = {
   title: "RooRooRoo - Your Faithful Website Watcher",
   description:
     "Monitor websites for changes and get instant notifications. Like a loyal pup watching out the window, RooRooRoo keeps an eye on your favorite websites.",
-  generator: "v0.app",
   keywords: ["website monitoring", "change detection", "notifications", "alerts", "web scraping"],
-  authors: [{ name: "RooRooRoo Team" }],
+  authors: [{ name: "mattjo" }],
+  icons: {
+    icon: "/icon.svg",
+  },
   openGraph: {
     title: "RooRooRoo - Your Faithful Website Watcher",
     description: "Monitor websites for changes and get instant notifications",

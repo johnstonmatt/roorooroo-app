@@ -30,7 +30,8 @@ const minimalCodes = [
   "1f4bc", // briefcase
   "2764", // red heart (Twemoji stores without VS16 suffix)
   "1f4f0", // newspaper
-  "1f50d" // magnifying glass
+  "1f50d", // magnifying glass
+  "1f43e" // paw prints 🐾
 ]
 
 function ensureDir(p) {
