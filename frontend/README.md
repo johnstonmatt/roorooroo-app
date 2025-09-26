@@ -1,6 +1,8 @@
 # roorooroo-app
 
-A Next.js 14 app using React 18, Tailwind CSS v4, and Supabase. This repo powers the Roorooroo application with authentication, dashboards, and a component system based on Radix UI and shadcn-like primitives.
+A Next.js 14 app using React 18, Tailwind CSS v4, and Supabase. This repo powers
+the Roorooroo application with authentication, dashboards, and a component
+system based on Radix UI and shadcn-like primitives.
 
 ## Features
 
@@ -96,7 +98,8 @@ We welcome contributions! Follow these steps:
    pnpm install
    pnpm dev
    ```
-3. Make changes with clear commits. Conventional commits are encouraged (e.g., `feat:`, `fix:`, `chore:`).
+3. Make changes with clear commits. Conventional commits are encouraged (e.g.,
+   `feat:`, `fix:`, `chore:`).
 4. Lint and build locally:
    ```bash
    pnpm lint && pnpm build
@@ -116,9 +119,10 @@ We welcome contributions! Follow these steps:
 ## Issue Reporting
 
 - Use GitHub Issues for bugs and feature requests
-- Include steps to reproduce, expected vs actual behavior, and environment details
+- Include steps to reproduce, expected vs actual behavior, and environment
+  details
 
 ## License
 
-MIT — see `LICENSE` if present. If not included, contributions are accepted under the project’s intended MIT licensing.
-
+MIT — see `LICENSE` if present. If not included, contributions are accepted
+under the project’s intended MIT licensing.

@@ -1,38 +1,41 @@
-'use client'
+"use client";
 
-import * as React from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { PhoneInput } from '@/components/ui/phone-input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Trash2, Mail, Phone, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { validatePhoneNumber, type PhoneValidationResult } from '@/lib/phone-validation'
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Mail, Phone, Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  type PhoneValidationResult,
+  validatePhoneNumber,
+} from "@/lib/phone-validation";
 
 export interface NotificationChannel {
-  type: 'email' | 'sms'
-  address: string
-  id?: string // Optional ID for tracking
+  type: "email" | "sms";
+  address: string;
+  id?: string; // Optional ID for tracking
 }
 
 export interface NotificationChannelsProps {
-  channels: NotificationChannel[]
-  onChange: (channels: NotificationChannel[]) => void
-  maxChannels?: number
-  maxEmailChannels?: number
-  maxSmsChannels?: number
-  className?: string
-  disabled?: boolean
+  channels: NotificationChannel[];
+  onChange: (channels: NotificationChannel[]) => void;
+  maxChannels?: number;
+  maxEmailChannels?: number;
+  maxSmsChannels?: number;
+  className?: string;
+  disabled?: boolean;
 }
 
 interface ChannelInputState {
-  email: string
-  phone: string
-  emailError?: string
-  phoneError?: string
-  phoneValidation?: PhoneValidationResult
+  email: string;
+  phone: string;
+  emailError?: string;
+  phoneError?: string;
+  phoneValidation?: PhoneValidationResult;
 }
 
 export function NotificationChannels({
@@ -42,145 +45,165 @@ export function NotificationChannels({
   maxEmailChannels = 5,
   maxSmsChannels = 5,
   className,
-  disabled = false
+  disabled = false,
 }: NotificationChannelsProps) {
   const [inputState, setInputState] = React.useState<ChannelInputState>({
-    email: '',
-    phone: ''
-  })
+    email: "",
+    phone: "",
+  });
 
   // Calculate current channel counts
-  const emailChannels = channels.filter(c => c.type === 'email')
-  const smsChannels = channels.filter(c => c.type === 'sms')
-  const canAddEmail = emailChannels.length < maxEmailChannels && channels.length < maxChannels
-  const canAddSms = smsChannels.length < maxSmsChannels && channels.length < maxChannels
+  const emailChannels = channels.filter((c) => c.type === "email");
+  const smsChannels = channels.filter((c) => c.type === "sms");
+  const canAddEmail = emailChannels.length < maxEmailChannels &&
+    channels.length < maxChannels;
+  const canAddSms = smsChannels.length < maxSmsChannels &&
+    channels.length < maxChannels;
 
   // Validate email format
   const validateEmail = (email: string): string | undefined => {
-    if (!email.trim()) return 'Email is required'
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) return 'Please enter a valid email address'
-    return undefined
-  }
+    if (!email.trim()) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return undefined;
+  };
 
   // Check for duplicate channels
-  const isDuplicateChannel = (type: 'email' | 'sms', address: string): boolean => {
-    return channels.some(channel => 
-      channel.type === type && 
+  const isDuplicateChannel = (
+    type: "email" | "sms",
+    address: string,
+  ): boolean => {
+    return channels.some((channel) =>
+      channel.type === type &&
       channel.address.toLowerCase() === address.toLowerCase()
-    )
-  }
+    );
+  };
 
   // Add email channel
   const addEmailChannel = () => {
-    const email = inputState.email.trim()
-    const emailError = validateEmail(email)
-    
+    const email = inputState.email.trim();
+    const emailError = validateEmail(email);
+
     if (emailError) {
-      setInputState(prev => ({ ...prev, emailError }))
-      return
+      setInputState((prev) => ({ ...prev, emailError }));
+      return;
     }
 
-    if (isDuplicateChannel('email', email)) {
-      setInputState(prev => ({ ...prev, emailError: 'This email is already added' }))
-      return
+    if (isDuplicateChannel("email", email)) {
+      setInputState((prev) => ({
+        ...prev,
+        emailError: "This email is already added",
+      }));
+      return;
     }
 
     if (!canAddEmail) {
-      setInputState(prev => ({ 
-        ...prev, 
-        emailError: `Maximum ${maxEmailChannels} email channels allowed` 
-      }))
-      return
+      setInputState((prev) => ({
+        ...prev,
+        emailError: `Maximum ${maxEmailChannels} email channels allowed`,
+      }));
+      return;
     }
 
     const newChannel: NotificationChannel = {
-      type: 'email',
+      type: "email",
       address: email,
-      id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }
+      id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
 
-    onChange([...channels, newChannel])
-    setInputState(prev => ({ ...prev, email: '', emailError: undefined }))
-  }
+    onChange([...channels, newChannel]);
+    setInputState((prev) => ({ ...prev, email: "", emailError: undefined }));
+  };
 
   // Add SMS channel
   const addSmsChannel = () => {
-    const phoneValidation = inputState.phoneValidation
-    
+    const phoneValidation = inputState.phoneValidation;
+
     if (!phoneValidation?.isValid || !phoneValidation.normalizedNumber) {
-      setInputState(prev => ({ 
-        ...prev, 
-        phoneError: phoneValidation?.error || 'Please enter a valid phone number' 
-      }))
-      return
+      setInputState((prev) => ({
+        ...prev,
+        phoneError: phoneValidation?.error ||
+          "Please enter a valid phone number",
+      }));
+      return;
     }
 
-    if (isDuplicateChannel('sms', phoneValidation.normalizedNumber)) {
-      setInputState(prev => ({ ...prev, phoneError: 'This phone number is already added' }))
-      return
+    if (isDuplicateChannel("sms", phoneValidation.normalizedNumber)) {
+      setInputState((prev) => ({
+        ...prev,
+        phoneError: "This phone number is already added",
+      }));
+      return;
     }
 
     if (!canAddSms) {
-      setInputState(prev => ({ 
-        ...prev, 
-        phoneError: `Maximum ${maxSmsChannels} SMS channels allowed` 
-      }))
-      return
+      setInputState((prev) => ({
+        ...prev,
+        phoneError: `Maximum ${maxSmsChannels} SMS channels allowed`,
+      }));
+      return;
     }
 
     const newChannel: NotificationChannel = {
-      type: 'sms',
+      type: "sms",
       address: phoneValidation.normalizedNumber,
-      id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }
+      id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
 
-    onChange([...channels, newChannel])
-    setInputState(prev => ({ ...prev, phone: '', phoneError: undefined, phoneValidation: undefined }))
-  }
+    onChange([...channels, newChannel]);
+    setInputState((prev) => ({
+      ...prev,
+      phone: "",
+      phoneError: undefined,
+      phoneValidation: undefined,
+    }));
+  };
 
   // Remove channel
   const removeChannel = (index: number) => {
-    const newChannels = channels.filter((_, i) => i !== index)
-    onChange(newChannels)
-  }
+    const newChannels = channels.filter((_, i) => i !== index);
+    onChange(newChannels);
+  };
 
   // Handle email input change
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const email = e.target.value
-    setInputState(prev => ({ 
-      ...prev, 
-      email, 
-      emailError: undefined 
-    }))
-  }
+    const email = e.target.value;
+    setInputState((prev) => ({
+      ...prev,
+      email,
+      emailError: undefined,
+    }));
+  };
 
   // Handle phone input change
-  const handlePhoneChange = (value: string, validation: PhoneValidationResult) => {
-    setInputState(prev => ({ 
-      ...prev, 
-      phone: value, 
+  const handlePhoneChange = (
+    value: string,
+    validation: PhoneValidationResult,
+  ) => {
+    setInputState((prev) => ({
+      ...prev,
+      phone: value,
       phoneError: undefined,
-      phoneValidation: validation
-    }))
-  }
+      phoneValidation: validation,
+    }));
+  };
 
   // Handle Enter key press
   const handleEmailKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !disabled) {
-      e.preventDefault()
-      addEmailChannel()
+    if (e.key === "Enter" && !disabled) {
+      e.preventDefault();
+      addEmailChannel();
     }
-  }
+  };
 
   // Format phone number for display
   const formatPhoneForDisplay = (phoneNumber: string): string => {
-    const validation = validatePhoneNumber(phoneNumber)
-    return validation.formattedNumber || phoneNumber
-  }
+    const validation = validatePhoneNumber(phoneNumber);
+    return validation.formattedNumber || phoneNumber;
+  };
 
   return (
-    <Card className={cn('w-full', className)}>
+    <Card className={cn("w-full", className)}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           Notification Channels
@@ -209,7 +232,7 @@ export function NotificationChannels({
                 onChange={handleEmailChange}
                 onKeyPress={handleEmailKeyPress}
                 disabled={disabled}
-                className={inputState.emailError ? 'border-destructive' : ''}
+                className={inputState.emailError ? "border-destructive" : ""}
               />
               {inputState.emailError && (
                 <p className="mt-1 text-sm text-destructive">
@@ -252,7 +275,8 @@ export function NotificationChannels({
             <Button
               type="button"
               onClick={addSmsChannel}
-              disabled={disabled || !canAddSms || !inputState.phoneValidation?.isValid}
+              disabled={disabled || !canAddSms ||
+                !inputState.phoneValidation?.isValid}
               size="sm"
               className="shrink-0"
             >
@@ -272,17 +296,14 @@ export function NotificationChannels({
                   className="flex items-center justify-between p-3 border rounded-lg bg-muted/50"
                 >
                   <div className="flex items-center gap-3">
-                    {channel.type === 'email' ? (
-                      <Mail className="h-4 w-4 text-blue-500" />
-                    ) : (
-                      <Phone className="h-4 w-4 text-green-500" />
-                    )}
+                    {channel.type === "email"
+                      ? <Mail className="h-4 w-4 text-blue-500" />
+                      : <Phone className="h-4 w-4 text-green-500" />}
                     <div>
                       <p className="font-medium">
-                        {channel.type === 'email' 
-                          ? channel.address 
-                          : formatPhoneForDisplay(channel.address)
-                        }
+                        {channel.type === "email"
+                          ? channel.address
+                          : formatPhoneForDisplay(channel.address)}
                       </p>
                       <p className="text-xs text-muted-foreground capitalize">
                         {channel.type} notification
@@ -306,15 +327,16 @@ export function NotificationChannels({
         )}
 
         {/* Channel Limits Info */}
-        {(channels.length >= maxChannels || emailChannels.length >= maxEmailChannels || smsChannels.length >= maxSmsChannels) && (
+        {(channels.length >= maxChannels ||
+          emailChannels.length >= maxEmailChannels ||
+          smsChannels.length >= maxSmsChannels) && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              {channels.length >= maxChannels 
+              {channels.length >= maxChannels
                 ? `Maximum of ${maxChannels} total notification channels allowed.`
                 : emailChannels.length >= maxEmailChannels
                 ? `Maximum of ${maxEmailChannels} email channels allowed.`
-                : `Maximum of ${maxSmsChannels} SMS channels allowed.`
-              }
+                : `Maximum of ${maxSmsChannels} SMS channels allowed.`}
             </p>
           </div>
         )}
@@ -323,10 +345,12 @@ export function NotificationChannels({
         {channels.length === 0 && (
           <div className="text-center py-6 text-muted-foreground">
             <p>No notification channels configured</p>
-            <p className="text-sm">Add email or SMS channels to receive alerts</p>
+            <p className="text-sm">
+              Add email or SMS channels to receive alerts
+            </p>
           </div>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

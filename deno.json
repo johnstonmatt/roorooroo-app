@@ -7,11 +7,10 @@
       "command": "cd frontend && pnpm dev"
     },
     "dev:backend": {
-        "command": "npx supabase functions serve --env-file ./supabase/.env.local"
+      "command": "npx supabase functions serve --env-file ./supabase/.env.local"
     },
     "dev": {
       "command": "deno run -A npm:concurrently \"deno task dev:frontend\" \"deno task dev:backend\""
-
     }
   },
   "lint": {

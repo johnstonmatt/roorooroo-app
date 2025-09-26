@@ -1,10 +1,14 @@
-import { parsePhoneNumber, isValidPhoneNumber, AsYouType } from 'libphonenumber-js'
+import {
+  AsYouType,
+  isValidPhoneNumber,
+  parsePhoneNumber,
+} from "libphonenumber-js";
 
 export interface PhoneValidationResult {
-  isValid: boolean
-  normalizedNumber?: string
-  formattedNumber?: string
-  error?: string
+  isValid: boolean;
+  normalizedNumber?: string;
+  formattedNumber?: string;
+  error?: string;
 }
 
 /**
@@ -14,55 +18,57 @@ export interface PhoneValidationResult {
  * @returns PhoneValidationResult with validation status and normalized/formatted numbers
  */
 export function validatePhoneNumber(
-  phoneNumber: string, 
-  defaultCountry: 'US' | 'CA' | 'GB' | 'AU' = 'US'
+  phoneNumber: string,
+  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
 ): PhoneValidationResult {
-  if (!phoneNumber || typeof phoneNumber !== 'string') {
+  if (!phoneNumber || typeof phoneNumber !== "string") {
     return {
       isValid: false,
-      error: 'Phone number is required'
-    }
+      error: "Phone number is required",
+    };
   }
 
   // Clean the input - remove extra spaces and common separators
-  const cleanedNumber = phoneNumber.trim().replace(/\s+/g, ' ')
+  const cleanedNumber = phoneNumber.trim().replace(/\s+/g, " ");
 
   try {
     // First try to parse without country code
-    let parsedNumber
+    let parsedNumber;
     try {
-      parsedNumber = parsePhoneNumber(cleanedNumber)
+      parsedNumber = parsePhoneNumber(cleanedNumber);
     } catch {
       // If that fails, try with default country
-      parsedNumber = parsePhoneNumber(cleanedNumber, defaultCountry)
+      parsedNumber = parsePhoneNumber(cleanedNumber, defaultCountry);
     }
 
     if (!parsedNumber) {
       return {
         isValid: false,
-        error: 'Invalid phone number format'
-      }
+        error: "Invalid phone number format",
+      };
     }
 
     // Validate the parsed number
     if (!parsedNumber.isValid()) {
       return {
         isValid: false,
-        error: 'Phone number is not valid for the detected country'
-      }
+        error: "Phone number is not valid for the detected country",
+      };
     }
 
     // Return normalized (E.164) and formatted versions
     return {
       isValid: true,
-      normalizedNumber: parsedNumber.format('E.164'), // +12345678900
-      formattedNumber: parsedNumber.formatInternational() // +1 234 567 8900
-    }
+      normalizedNumber: parsedNumber.format("E.164"), // +12345678900
+      formattedNumber: parsedNumber.formatInternational(), // +1 234 567 8900
+    };
   } catch (error) {
     return {
       isValid: false,
-      error: error instanceof Error ? error.message : 'Invalid phone number format'
-    }
+      error: error instanceof Error
+        ? error.message
+        : "Invalid phone number format",
+    };
   }
 }
 
@@ -72,29 +78,32 @@ export function validatePhoneNumber(
  * @param defaultCountry - Default country code to use if not specified
  * @returns Formatted phone number string or original if formatting fails
  */
-export function formatPhoneNumber(phoneNumber: string, defaultCountry: 'US' | 'CA' | 'GB' | 'AU' = 'US'): string {
-  if (!phoneNumber || typeof phoneNumber !== 'string') {
-    return phoneNumber
+export function formatPhoneNumber(
+  phoneNumber: string,
+  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
+): string {
+  if (!phoneNumber || typeof phoneNumber !== "string") {
+    return phoneNumber;
   }
 
   try {
     // First try to parse without country code
-    let parsedNumber
+    let parsedNumber;
     try {
-      parsedNumber = parsePhoneNumber(phoneNumber)
+      parsedNumber = parsePhoneNumber(phoneNumber);
     } catch {
       // If that fails, try with default country
-      parsedNumber = parsePhoneNumber(phoneNumber, defaultCountry)
+      parsedNumber = parsePhoneNumber(phoneNumber, defaultCountry);
     }
-    
+
     if (parsedNumber && parsedNumber.isValid()) {
-      return parsedNumber.formatInternational()
+      return parsedNumber.formatInternational();
     }
   } catch {
     // If parsing fails, return original
   }
 
-  return phoneNumber
+  return phoneNumber;
 }
 
 /**
@@ -105,17 +114,17 @@ export function formatPhoneNumber(phoneNumber: string, defaultCountry: 'US' | 'C
  */
 export function formatPhoneNumberAsYouType(
   phoneNumber: string,
-  defaultCountry: 'US' | 'CA' | 'GB' | 'AU' = 'US'
+  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
 ): string {
   if (!phoneNumber) {
-    return ''
+    return "";
   }
 
   try {
-    const formatter = new AsYouType(defaultCountry)
-    return formatter.input(phoneNumber)
+    const formatter = new AsYouType(defaultCountry);
+    return formatter.input(phoneNumber);
   } catch {
-    return phoneNumber
+    return phoneNumber;
   }
 }
 
@@ -127,16 +136,16 @@ export function formatPhoneNumberAsYouType(
  */
 export function isPhoneNumberValid(
   phoneNumber: string,
-  defaultCountry: 'US' | 'CA' | 'GB' | 'AU' = 'US'
+  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
 ): boolean {
-  if (!phoneNumber || typeof phoneNumber !== 'string') {
-    return false
+  if (!phoneNumber || typeof phoneNumber !== "string") {
+    return false;
   }
 
   try {
-    return isValidPhoneNumber(phoneNumber, defaultCountry)
+    return isValidPhoneNumber(phoneNumber, defaultCountry);
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -148,8 +157,8 @@ export function isPhoneNumberValid(
  */
 export function normalizePhoneNumber(
   phoneNumber: string,
-  defaultCountry: 'US' | 'CA' | 'GB' | 'AU' = 'US'
+  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
 ): string | null {
-  const result = validatePhoneNumber(phoneNumber, defaultCountry)
-  return result.isValid ? result.normalizedNumber! : null
+  const result = validatePhoneNumber(phoneNumber, defaultCountry);
+  return result.isValid ? result.normalizedNumber! : null;
 }

@@ -1,7 +1,12 @@
-import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 // Ensure a single browser client instance across the app (and across HMR in dev)
-const globalForSupabase = globalThis as unknown as { __supabase?: SupabaseClient }
+const globalForSupabase = globalThis as unknown as {
+  __supabase?: SupabaseClient;
+};
 
 const supabaseSingleton = globalForSupabase.__supabase ?? createSupabaseClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,12 +17,12 @@ const supabaseSingleton = globalForSupabase.__supabase ?? createSupabaseClient(
       storageKey: "roorooroo-auth",
     },
   },
-)
+);
 
 if (process.env.NODE_ENV !== "production") {
-  globalForSupabase.__supabase = supabaseSingleton
+  globalForSupabase.__supabase = supabaseSingleton;
 }
 
 export function createClient(): SupabaseClient {
-  return supabaseSingleton
+  return supabaseSingleton;
 }
