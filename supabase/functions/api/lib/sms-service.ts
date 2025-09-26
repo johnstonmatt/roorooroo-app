@@ -183,14 +183,14 @@ export class SMSService {
       "Content-Type": "application/x-www-form-urlencoded",
     };
 
-    return fetch(url, {
+    return await fetch(url, {
       method,
       headers,
       body: method === "POST" ? body : undefined,
     });
   }
 
-  private sanitizeErrorMessage(error: any): string {
+  private sanitizeErrorMessage(error: unknown): string {
     if (error instanceof Error) {
       if (config.app.environment === "production") {
         return "Failed to send SMS. Please try again later.";
@@ -198,16 +198,19 @@ export class SMSService {
       return error.message;
     }
 
-    if (error?.message) {
+    if (
+      typeof error === "object" && error !== null &&
+      "message" in (error as Record<string, unknown>)
+    ) {
       return config.app.environment === "production"
         ? "Failed to send SMS. Please try again later."
-        : error.message;
+        : (error as { message?: string }).message ?? "Unknown error";
     }
 
     return "Failed to send SMS";
   }
 
-  private isRetryableError(error: any): boolean {
+  private isRetryableError(error: unknown): boolean {
     const retryableErrorCodes = [
       20429,
       21610,
@@ -219,14 +222,24 @@ export class SMSService {
       30006,
     ];
 
-    if (error?.code && retryableErrorCodes.includes(error.code)) {
+    const code = (typeof error === "object" && error !== null &&
+        "code" in (error as Record<string, unknown>))
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (typeof code === "number" && retryableErrorCodes.includes(code)) {
       return true;
     }
 
+    const message = (typeof error === "object" && error !== null &&
+        "message" in (error as Record<string, unknown>))
+      ? (error as { message?: unknown }).message
+      : undefined;
     if (
-      error?.message?.includes("ECONNRESET") ||
-      error?.message?.includes("ETIMEDOUT") ||
-      error?.message?.includes("ENOTFOUND")
+      typeof message === "string" && (
+        message.includes("ECONNRESET") ||
+        message.includes("ETIMEDOUT") ||
+        message.includes("ENOTFOUND")
+      )
     ) {
       return true;
     }

@@ -114,7 +114,7 @@ monitors.post(
         },
         notification_channels: {
           required: true,
-          custom: (value: any) => {
+          custom: (value: unknown) => {
             if (
               !Array.isArray(value)
             ) return "notification_channels must be an array";
@@ -125,7 +125,10 @@ monitors.post(
               value.length > 5
             ) return "Maximum 5 notification channels allowed";
 
-            for (const channel of value) {
+            for (
+              const channel
+                of (value as Array<{ type?: string; address?: string }>)
+            ) {
               if (!channel.type || !["email", "sms"].includes(channel.type)) {
                 return "Each notification channel must have a valid type (email or sms)";
               }
@@ -299,7 +302,7 @@ monitors.put(
         is_active: { required: false, type: "boolean" as const },
         notification_channels: {
           required: false,
-          custom: (value: any) => {
+          custom: (value: unknown) => {
             if (
               !Array.isArray(value)
             ) return "notification_channels must be an array";
@@ -310,7 +313,10 @@ monitors.put(
               value.length > 5
             ) return "Maximum 5 notification channels allowed";
 
-            for (const channel of value) {
+            for (
+              const channel
+                of (value as Array<{ type?: string; address?: string }>)
+            ) {
               if (!channel.type || !["email", "sms"].includes(channel.type)) {
                 return "Each notification channel must have a valid type (email or sms)";
               }
@@ -327,7 +333,7 @@ monitors.put(
       validateAndThrow(updateSchema, body);
 
       // Prepare update data (only include provided fields)
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (body.name !== undefined) updateData.name = body.name.trim();
       if (body.url !== undefined) updateData.url = body.url.trim();
       if (body.pattern !== undefined) updateData.pattern = body.pattern.trim();

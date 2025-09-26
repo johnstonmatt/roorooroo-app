@@ -5,7 +5,7 @@ import { cors } from "jsr:@hono/hono@^4.6.3/cors";
  * Allows requests from development and production frontend domains
  */
 export const corsMiddleware = cors({
-  origin: (origin, c) => {
+  origin: (origin, _c) => {
     // Allow requests from localhost during development
     if (origin?.includes("localhost") || origin?.includes("127.0.0.1")) {
       return origin;

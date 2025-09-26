@@ -5,8 +5,8 @@ import { createClient } from "jsr:@supabase/supabase-js@^2.45.4";
  * Uses the anon key for client-side operations
  */
 export function createSupabaseClient() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("OG_SUPABASE_ANON_KEY");
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing required Supabase environment variables");
@@ -20,8 +20,8 @@ export function createSupabaseClient() {
  * Used for admin operations that bypass RLS
  */
 export function createServiceClient() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("OG_SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error(

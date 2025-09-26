@@ -19,7 +19,7 @@ import { webhooks } from "./routes/webhooks.ts";
 
 // Create main Hono application
 import type { AppVariables } from "./types.ts";
-const api = new Hono<{ Variables: AppVariables }>();
+const api = new Hono<{ Variables: AppVariables }>().basePath("/api");
 
 api.use(logger());
 

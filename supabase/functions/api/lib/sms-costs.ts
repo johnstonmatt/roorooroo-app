@@ -161,6 +161,7 @@ export class SMSCostMonitor {
 
   async logCostAlert(alert: CostAlert): Promise<void> {
     try {
+      await Promise.resolve();
       logger.warn("SMS Cost Alert:", {
         userId: alert.userId,
         alertLevel: alert.alertLevel,

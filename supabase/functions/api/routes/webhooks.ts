@@ -1,7 +1,6 @@
 // SMS status webhooks routes
 import { Hono } from "jsr:@hono/hono@4.9.8";
 import { config, logger } from "../lib/config.ts";
-import { createServiceClient } from "../lib/supabase.ts";
 
 const webhooks = new Hono();
 
@@ -94,14 +93,14 @@ function validateWebhookData(data: Record<string, string>): {
 /**
  * Update notification status in database
  */
-async function updateNotificationStatus(
+function updateNotificationStatus(
   messageId: string,
   status: string,
   errorCode?: string,
   errorMessage?: string,
-): Promise<void> {
+): void {
   try {
-    const supabase = createServiceClient();
+    // const supabase = createServiceClient();
 
     logger.info("SMS status update received:", {
       messageId,
@@ -165,7 +164,7 @@ async function updateNotificationStatus(
  * GET /api/webhooks/sms-status
  * Webhook verification endpoint for Twilio
  */
-webhooks.get("/sms-status", async (c) => {
+webhooks.get("/sms-status", (c) => {
   try {
     // Twilio webhook verification - return the challenge parameter if present
     const challenge = c.req.query("challenge");
@@ -236,7 +235,7 @@ webhooks.post("/sms-status", async (c) => {
       ErrorCode: errorCode,
       ErrorMessage: errorMessage,
       To: to,
-      From: from,
+      From: _from,
       AccountSid: accountSid,
     } = webhookData;
 

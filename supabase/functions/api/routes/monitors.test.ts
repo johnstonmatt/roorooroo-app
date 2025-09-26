@@ -4,14 +4,17 @@ import { Hono } from "jsr:@hono/hono@4.9.8";
 import { monitors } from "./monitors.ts";
 
 // Mock authentication middleware for testing
-const mockAuthMiddleware = async (c: any, next: any) => {
+const mockAuthMiddleware = async (
+  c: { set: (key: string, value: unknown) => void },
+  next: () => Promise<void>,
+) => {
   // Mock authenticated user
   c.set("userId", "test-user-id");
   c.set("supabase", {
-    from: (table: string) => ({
-      select: (columns: string) => ({
-        eq: (column: string, value: string) => ({
-          order: (column: string, options: any) => ({
+    from: (_table: string) => ({
+      select: (_columns: string) => ({
+        eq: (_column: string, _value: string) => ({
+          order: (_column: string, _options: unknown) => ({
             // Mock successful response
             data: [
               {
@@ -79,13 +82,16 @@ Deno.test("GET /api/monitors - should require authentication", async () => {
 });
 
 Deno.test("GET /api/monitors - should handle database errors gracefully", async () => {
-  const mockAuthWithError = async (c: any, next: any) => {
+  const mockAuthWithError = async (
+    c: { set: (key: string, value: unknown) => void },
+    next: () => Promise<void>,
+  ) => {
     c.set("userId", "test-user-id");
     c.set("supabase", {
-      from: (table: string) => ({
-        select: (columns: string) => ({
-          eq: (column: string, value: string) => ({
-            order: (column: string, options: any) => ({
+      from: (_table: string) => ({
+        select: (_columns: string) => ({
+          eq: (_column: string, _value: string) => ({
+            order: (_column: string, _options: unknown) => ({
               data: null,
               error: { message: "Database connection failed" },
             }),
@@ -116,13 +122,16 @@ Deno.test("GET /api/monitors - should handle database errors gracefully", async 
 });
 
 Deno.test("GET /api/monitors - should return empty array when no monitors exist", async () => {
-  const mockAuthWithEmptyResult = async (c: any, next: any) => {
+  const mockAuthWithEmptyResult = async (
+    c: { set: (key: string, value: unknown) => void },
+    next: () => Promise<void>,
+  ) => {
     c.set("userId", "test-user-id");
     c.set("supabase", {
-      from: (table: string) => ({
-        select: (columns: string) => ({
-          eq: (column: string, value: string) => ({
-            order: (column: string, options: any) => ({
+      from: (_table: string) => ({
+        select: (_columns: string) => ({
+          eq: (_column: string, _value: string) => ({
+            order: (_column: string, _options: unknown) => ({
               data: [],
               error: null,
             }),

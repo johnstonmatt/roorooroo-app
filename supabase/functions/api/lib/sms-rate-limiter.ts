@@ -145,7 +145,7 @@ export class SMSRateLimiter {
     const currentDay = this.getDayStart(now);
     const currentMonth = this.getMonthStart(now);
 
-    let updated = { ...usage };
+    const updated = { ...usage };
 
     if (currentHour > usage.lastResetHour) {
       updated.hourlyCount = 0;

@@ -130,7 +130,7 @@ monitorCheck.post(
         try {
           await notificationService.sendNotifications(
             {
-              monitor: monitor as any,
+              monitor: monitor as Monitor,
               type: notificationType,
               contentSnippet: checkResult.contentSnippet,
               errorMessage: checkResult.errorMessage,
@@ -257,7 +257,7 @@ function checkPattern(content: string, pattern: string, patternType: string): {
 } {
   try {
     switch (patternType) {
-      case "contains":
+      case "contains": {
         const containsMatch = content.toLowerCase().includes(
           pattern.toLowerCase(),
         );
@@ -270,14 +270,16 @@ function checkPattern(content: string, pattern: string, patternType: string): {
           return { found: true, snippet };
         }
         return { found: false };
+      }
 
-      case "not_contains":
+      case "not_contains": {
         const notContainsMatch = !content.toLowerCase().includes(
           pattern.toLowerCase(),
         );
         return { found: notContainsMatch };
+      }
 
-      case "regex":
+      case "regex": {
         const regex = new RegExp(pattern, "i"); // Case insensitive
         const regexMatch = regex.exec(content);
         if (regexMatch) {
@@ -290,6 +292,7 @@ function checkPattern(content: string, pattern: string, patternType: string): {
           return { found: true, snippet };
         }
         return { found: false };
+      }
 
       default:
         throw new Error(`Unsupported pattern type: ${patternType}`);
@@ -304,8 +307,14 @@ function checkPattern(content: string, pattern: string, patternType: string): {
 /**
  * Log the monitor check result to the database
  */
+type SupabaseLike = {
+  from: (table: string) => {
+    insert: (data: Record<string, unknown>) => Promise<unknown>;
+  };
+};
+
 async function logMonitorCheck(
-  supabase: any,
+  supabase: SupabaseLike,
   monitorId: string,
   result: {
     status: "found" | "not_found" | "error";

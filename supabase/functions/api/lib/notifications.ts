@@ -62,7 +62,15 @@ export class NotificationService {
         const errorResult: NotificationResult = {
           success: false,
           channel,
-          error: (result as any).reason?.message || "Unknown error",
+          error: (() => {
+            const reason = (result as PromiseRejectedResult).reason;
+            if (
+              typeof reason === "object" && reason &&
+              "message" in (reason as Record<string, unknown>) &&
+              typeof (reason as { message?: unknown }).message === "string"
+            ) return (reason as { message: string }).message;
+            return "Unknown error";
+          })(),
         };
         results.push(errorResult);
         await this.logNotification(payload, channel, errorResult);
@@ -84,7 +92,9 @@ export class NotificationService {
           return await this.sendSMSNotification(payload, channel);
         default:
           throw new Error(
-            `Unsupported notification channel type: ${(channel as any).type}`,
+            `Unsupported notification channel type: ${((channel as {
+              type?: string;
+            }).type ?? "unknown")}`,
           );
       }
     } catch (error) {
@@ -100,6 +110,7 @@ export class NotificationService {
     payload: NotificationPayload,
     channel: NotificationChannel,
   ): Promise<NotificationResult> {
+    await Promise.resolve();
     const message = this.formatEmailMessage(payload);
 
     console.log("Email notification:", {
@@ -267,7 +278,7 @@ export class NotificationService {
       const { createServiceClient } = await import("./supabase.ts");
       const supabase = createServiceClient();
 
-      let timeFilter = new Date();
+      const timeFilter = new Date();
       switch (timeframe) {
         case "hour":
           timeFilter.setHours(timeFilter.getHours() - 1);

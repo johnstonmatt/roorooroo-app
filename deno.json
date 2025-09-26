@@ -1,12 +1,12 @@
 {
-    "tasks": {
-        "build": "cd frontend && pnpm build",
-        "deploy": "npx supabase functions deploy",
-        "fmt": "deno fmt ./supabase/functions"
-    },
-    "lint": {
-        "rules": {
-            "exclude": ["no-import-prefix"]
-        }
+  "tasks": {
+    "build": "cd frontend && pnpm build",
+    "deploy": "npx supabase functions deploy",
+    "fmt": "deno fmt ./supabase/functions"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-import-prefix"]
     }
+  }
 }

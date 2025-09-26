@@ -13,6 +13,7 @@ export async function authMiddleware(
   c: Context<{ Variables: AppVariables }>,
   next: Next,
 ) {
+  console.log("AUTH_MIDDLEWARE");
   const authHeader = c.req.header("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -26,6 +27,7 @@ export async function authMiddleware(
 
     // Verify the JWT token and get user information
     const { data: { user }, error } = await supabase.auth.getUser(token);
+    console.log(user ? `USER ${user.email}` : `ERROR ${JSON.stringify(error)}`);
 
     if (error || !user) {
       return c.json({ error: "Invalid or expired token" }, 401);

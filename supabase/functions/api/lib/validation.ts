@@ -13,7 +13,7 @@ export interface ValidationSchema {
     max?: number;
     pattern?: RegExp;
     enum?: string[];
-    custom?: (value: any) => boolean | string;
+    custom?: (value: unknown) => boolean | string;
   };
 }
 
@@ -30,7 +30,7 @@ export interface ValidationResult {
  */
 export function validateRequest(
   schema: ValidationSchema,
-  data: any,
+  data: Record<string, unknown>,
 ): ValidationResult {
   const errors: Array<{ field: string; message: string }> = [];
 
@@ -121,7 +121,7 @@ export function validateRequest(
 
 function validateType(
   field: string,
-  value: any,
+  value: unknown,
   type: string,
 ): { field: string; message: string } | null {
   switch (type) {
@@ -196,7 +196,10 @@ function isValidPhone(phone: string): boolean {
   return phoneRegex.test(phone);
 }
 
-export function validateAndThrow(schema: ValidationSchema, data: any): void {
+export function validateAndThrow(
+  schema: ValidationSchema,
+  data: Record<string, unknown>,
+): void {
   const result = validateRequest(schema, data);
   if (!result.valid) {
     const firstError = result.errors[0];
