@@ -7,7 +7,8 @@
     "export": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "postinstall": "node scripts/copy-twemoji-assets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -37,7 +38,6 @@
     "@radix-ui/react-toast": "1.2.4",
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
-    "@radix-ui/react-tooltip": "1.1.6",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "@vercel/analytics": "latest",
@@ -62,6 +62,8 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "twemoji": "^14.0.2",
+    "twemoji-parser": "^14.0.0",
     "twilio": "^5.9.0",
     "vaul": "^0.9.9",
     "zod": "3.25.67"

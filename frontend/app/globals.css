@@ -120,4 +120,12 @@
   body {
     @apply bg-background text-foreground;
   }
+  img.emoji {
+    height: 1em;
+    width: 1em;
+    display: inline-block;
+    vertical-align: -0.15em; /* aligns better with text */
+    user-select: none;
+    -webkit-user-drag: none;
+  }
 }

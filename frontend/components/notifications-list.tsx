@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Mail, Phone, AlertCircle } from "lucide-react"
 // import { Button as DayPickerButton } from "react-day-picker"
 import { Button } from "@/components/ui/button"
+import { Emoji, EmojiText } from "@/lib/emoji"
 
 interface Notification {
   id: string
@@ -37,13 +38,13 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "pattern_found":
-        return "🎯"
+        return <Emoji char="🎯" />
       case "pattern_lost":
-        return "❌"
+        return <Emoji char="❌" />
       case "error":
-        return "⚠️"
+        return <Emoji char="⚠️" />
       default:
-        return "🔔"
+        return <Emoji char="🔔" />
     }
   }
 
@@ -194,7 +195,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
               <CardContent className="pt-0">
                 <div className="bg-orange-50 rounded-md p-3">
                   <pre className="text-sm text-orange-800 whitespace-pre-wrap font-sans">
-                    {formatPhoneForPrivacy(notification.message, notification.channel)}
+                    <EmojiText text={formatPhoneForPrivacy(notification.message, notification.channel)} />
                   </pre>
                 </div>
                 
@@ -237,7 +238,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
       ) : (
         /* No Results State */
         <div className="text-center py-16">
-          <div className="text-6xl mb-6">🔍</div>
+          <div className="text-6xl mb-6"><Emoji char="🔍" /></div>
           <h2 className="text-2xl font-bold text-orange-800 mb-4">No Notifications Found</h2>
           <p className="text-orange-600 mb-8 max-w-md mx-auto">
             {channelFilter === "all" 

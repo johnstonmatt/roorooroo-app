@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { NotificationsList } from "@/components/notifications-list"
+import { Emoji } from "@/lib/emoji"
 
 interface Notification {
   id: string
@@ -88,7 +89,7 @@ export default function NotificationsPage() {
               </Link>
             </Button>
             <div className="flex items-center gap-3">
-              <div className="text-2xl">🔔</div>
+              <div className="text-2xl"><Emoji char="🔔" /></div>
               <div>
                 <h1 className="text-xl font-bold text-orange-800">Notifications</h1>
                 <p className="text-xs text-orange-600">Your alert history</p>

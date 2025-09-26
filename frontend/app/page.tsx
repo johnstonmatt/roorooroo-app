@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Emoji } from "@/lib/emoji"
 
 export default function HomePage() {
   return (
@@ -10,7 +11,7 @@ export default function HomePage() {
       <header className="border-b border-orange-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="text-3xl">🐕</div>
+            <div className="text-3xl"><Emoji char="🐕" /></div>
             <div>
               <h1 className="text-2xl font-bold text-orange-800">RooRooRoo</h1>
               <p className="text-xs text-orange-600">Website Watcher</p>
@@ -30,7 +31,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="max-w-4xl mx-auto">
-          <div className="text-8xl mb-8 animate-bounce">🐕</div>
+          <div className="text-8xl mb-8 animate-bounce"><Emoji char="🐕" /></div>
           <h1 className="text-5xl font-bold text-orange-800 mb-6 text-balance">Your Faithful Website Watcher</h1>
           <p className="text-xl text-orange-700 mb-8 text-pretty max-w-2xl mx-auto">
             Like a loyal pup watching out the window, RooRooRoo keeps an eye on your favorite websites and barks when
@@ -74,7 +75,7 @@ export default function HomePage() {
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           <Card className="border-orange-200 hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
-              <div className="text-4xl mb-4">👀</div>
+              <div className="text-4xl mb-4"><Emoji char="👀" /></div>
               <CardTitle className="text-orange-800">Always Watching</CardTitle>
               <CardDescription className="text-orange-600">
                 Monitor websites 24/7 for specific content changes
@@ -92,7 +93,7 @@ export default function HomePage() {
 
           <Card className="border-orange-200 hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
-              <div className="text-4xl mb-4">🔔</div>
+              <div className="text-4xl mb-4"><Emoji char="🔔" /></div>
               <CardTitle className="text-orange-800">Instant Alerts</CardTitle>
               <CardDescription className="text-orange-600">Get notified the moment something changes</CardDescription>
             </CardHeader>
@@ -108,7 +109,7 @@ export default function HomePage() {
 
           <Card className="border-orange-200 hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
-              <div className="text-4xl mb-4">🎯</div>
+              <div className="text-4xl mb-4"><Emoji char="🎯" /></div>
               <CardTitle className="text-orange-800">Smart Matching</CardTitle>
               <CardDescription className="text-orange-600">Flexible pattern matching for any content</CardDescription>
             </CardHeader>
@@ -134,7 +135,7 @@ export default function HomePage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             <div className="text-center p-6 rounded-lg bg-white border border-orange-200">
-              <div className="text-3xl mb-3">🛒</div>
+              <div className="text-3xl mb-3"><Emoji char="🛒" /></div>
               <h3 className="font-semibold text-orange-800 mb-2">E-commerce</h3>
               <p className="text-sm text-orange-600">
                 Watch for "Buy Now" buttons, stock availability, or price changes
@@ -142,19 +143,19 @@ export default function HomePage() {
             </div>
 
             <div className="text-center p-6 rounded-lg bg-white border border-orange-200">
-              <div className="text-3xl mb-3">💼</div>
+              <div className="text-3xl mb-3"><Emoji char="💼" /></div>
               <h3 className="font-semibold text-orange-800 mb-2">Job Hunting</h3>
               <p className="text-sm text-orange-600">Monitor job boards for new postings matching your criteria</p>
             </div>
 
             <div className="text-center p-6 rounded-lg bg-white border border-orange-200">
-              <div className="text-3xl mb-3">📰</div>
+              <div className="text-3xl mb-3"><Emoji char="📰" /></div>
               <h3 className="font-semibold text-orange-800 mb-2">News & Updates</h3>
               <p className="text-sm text-orange-600">Stay informed about breaking news or company announcements</p>
             </div>
 
             <div className="text-center p-6 rounded-lg bg-white border border-orange-200">
-              <div className="text-3xl mb-3">🎫</div>
+              <div className="text-3xl mb-3"><Emoji char="🎫" /></div>
               <h3 className="font-semibold text-orange-800 mb-2">Event Tickets</h3>
               <p className="text-sm text-orange-600">Get alerted when tickets become available for sold-out events</p>
             </div>
@@ -165,7 +166,7 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="max-w-3xl mx-auto">
-          <div className="text-6xl mb-6">🐕‍🦺</div>
+          <div className="text-6xl mb-6"><Emoji char="🐕‍🦺" /></div>
           <h2 className="text-4xl font-bold text-orange-800 mb-6">Ready to Start Watching?</h2>
           <p className="text-xl text-orange-700 mb-8">
             Join thousands of users who trust RooRooRoo to keep watch over their important websites
@@ -182,7 +183,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <div className="text-2xl">🐕</div>
+              <div className="text-2xl"><Emoji char="🐕" /></div>
               <div>
                 <h3 className="font-bold text-orange-800">RooRooRoo</h3>
                 <p className="text-xs text-orange-600">Your faithful website watcher</p>
@@ -201,7 +202,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-center mt-8 pt-8 border-t border-orange-200">
-            <p className="text-sm text-orange-600">© 2025 RooRooRoo. Made with ❤️ for website watchers everywhere.</p>
+            <p className="text-sm text-orange-600">© 2025 RooRooRoo. Made with <Emoji char="❤️" /> for website watchers everywhere.</p>
           </div>
         </div>
       </footer>
