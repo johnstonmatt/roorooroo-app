@@ -64,7 +64,7 @@ function getNumericEnv(key: string, defaultValue: number): number {
  */
 export const config: Config = {
   supabase: {
-    url: getRequiredEnv("SUPABASE_URL"),
+    url: getRequiredEnv("OG_SUPABASE_URL"),
     anonKey: getRequiredEnv("SUPABASE_ANON_KEY"),
     serviceRoleKey: getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
   },
@@ -102,8 +102,8 @@ export const config: Config = {
  */
 export function validateConfig(): void {
   const requiredKeys = [
-    "SUPABASE_URL",
-    "SUPABASE_ANON_KEY",
+    "OG_SUPABASE_URL",
+    "OG_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
     "TWILIO_ACCOUNT_SID",
     "TWILIO_AUTH_TOKEN",

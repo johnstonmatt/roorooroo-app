@@ -14,9 +14,10 @@ const monitors = new Hono();
 monitors.get(
   "/",
   asyncHandler(async (c) => {
+    console.log("MONITORS_GET");
     const userId = c.get("userId");
     const supabase = c.get("supabase");
-
+    console.log("User ID:", userId);
     if (!userId || !supabase) {
       return c.json({ error: "Authentication required" }, 401);
     }

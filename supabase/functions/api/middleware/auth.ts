@@ -1,6 +1,18 @@
 import { Context, Next } from "jsr:@hono/hono@^4.6.3";
 import { createSupabaseClient } from "../utils/supabase.ts";
 
+function base64UrlToString(s: string) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = s.length % 4 === 2 ? "==" : s.length % 4 === 3 ? "=" : "";
+  return atob(s + pad);
+}
+
+function _getJwtClaims(token: string) {
+  const [, payload] = token.split(".");
+  const json = base64UrlToString(payload);
+  return JSON.parse(json);
+}
+
 /**
  * Authentication middleware that validates Supabase JWT tokens
  * Extracts user information and makes it available in the context
@@ -23,6 +35,8 @@ export async function authMiddleware(c: Context, next: Next) {
     if (error || !user) {
       return c.json({ error: "Invalid or expired token" }, 401);
     }
+
+    console.log("Authenticated user:", user?.email);
 
     // Store user and authenticated supabase client in context
     c.set("user", user);

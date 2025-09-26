@@ -1,6 +1,7 @@
 // Main Hono application entry point
 import { Hono } from "jsr:@hono/hono";
 // Import middleware
+import { logger } from "jsr:@hono/hono/logger";
 import { corsMiddleware, webhookCorsMiddleware } from "./middleware/cors.ts";
 import {
   adminMiddleware,
@@ -18,6 +19,8 @@ import { webhooks } from "./routes/webhooks.ts";
 
 // Create main Hono application
 const api = new Hono().basePath("/api");
+
+api.use(logger());
 
 // Global error handler
 api.onError(errorHandler);
@@ -85,22 +88,27 @@ api.get(
   ),
 );
 
-// API Routes with authentication middleware
+// Webhook routes - use webhook-specific CORS, no auth required for external webhooks
+webhooks.use(webhookCorsMiddleware);
+api.route("/webhooks", webhooks);
 
-// Admin routes - require authentication and admin role
-api.route("/admin", admin.use("*", authMiddleware).use("*", adminMiddleware));
+// API Routes with authentication middleware
+api.use(authMiddleware);
 
 // Monitor routes - require authentication
-api.route("/monitors", monitors.use("*", authMiddleware));
+api.route("/monitors", monitors);
 
 // Monitor check routes - require authentication
-api.route("/monitors/check", monitorCheck.use("*", authMiddleware));
+api.route("/monitors/check", monitorCheck);
 
 // Notifications routes - require authentication
-api.route("/notifications", notifications.use("*", authMiddleware));
+api.route("/notifications", notifications);
 
-// Webhook routes - use webhook-specific CORS, no auth required for external webhooks
-api.route("/webhooks", webhooks.use("*", webhookCorsMiddleware));
+// admin routes - require authentication and admin role
+admin.use(authMiddleware, adminMiddleware);
+
+// Admin routes - require authentication and admin role
+api.route("/admin", admin);
 
 const availableEndpoints = api.routes
   .filter((route) => route.method !== "ALL")
