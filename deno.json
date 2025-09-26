@@ -2,7 +2,17 @@
   "tasks": {
     "build": "cd frontend && pnpm build",
     "deploy": "npx supabase functions deploy",
-    "fmt": "deno fmt ./supabase/functions"
+    "fmt": "deno fmt ./supabase/functions",
+    "dev:frontend": {
+      "command": "cd frontend && pnpm dev"
+    },
+    "dev:backend": {
+        "command": "npx supabase functions serve --env-file ./supabase/.env.local"
+    },
+    "dev": {
+      "command": "deno run -A npm:concurrently \"deno task dev:frontend\" \"deno task dev:backend\""
+
+    }
   },
   "lint": {
     "rules": {

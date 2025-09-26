@@ -5,8 +5,10 @@ import { createClient } from "jsr:@supabase/supabase-js@^2.45.4";
  * Uses the anon key for client-side operations
  */
 export function createSupabaseClient() {
-  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("OG_SUPABASE_ANON_KEY");
+  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL") ??
+    Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("OG_SUPABASE_ANON_KEY") ??
+    Deno.env.get("SUPABASE_ANON_KEY");
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing required Supabase environment variables");
@@ -20,8 +22,10 @@ export function createSupabaseClient() {
  * Used for admin operations that bypass RLS
  */
 export function createServiceClient() {
-  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL");
-  const supabaseServiceKey = Deno.env.get("OG_SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL") ??
+    Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("OG_SUPABASE_SERVICE_ROLE_KEY") ??
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error(
@@ -37,10 +41,33 @@ export function createServiceClient() {
  * Used for operations that need to be performed as a specific user
  */
 export function createSupabaseClientWithAuth(token: string) {
-  const client = createSupabaseClient();
-  client.auth.setSession({
-    access_token: token,
-    refresh_token: "",
+  const supabaseUrl = Deno.env.get("OG_SUPABASE_URL") ??
+    Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("OG_SUPABASE_ANON_KEY") ??
+    Deno.env.get("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing required Supabase environment variables");
+  }
+
+  // Ensure PostgREST requests carry the user's JWT so RLS (auth.uid()) works
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
   });
+
+  // Also set the token on the auth client for any auth-related calls
+  // if ((client as any)?.auth?.setAuth) {
+  //   try {
+  //     // Supabase JS v2: setAuth ensures the token is used for subsequent requests
+  //     client.auth.setAuth(token);
+  //   } catch {
+  //     // no-op
+  //   }
+  // }
+
   return client;
 }

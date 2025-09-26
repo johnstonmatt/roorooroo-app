@@ -1,0 +1,30 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Roo the dog mascot">
+  <defs>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#14213D" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <g stroke="#14213D" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#s)">
+    <!-- head -->
+    <circle cx="128" cy="112" r="64" fill="#8EE6E2"/>
+    <!-- ears -->
+    <path d="M92 78 L74 40 L114 64 Z" fill="#58D3CB"/>
+    <path d="M164 78 L182 40 L142 64 Z" fill="#58D3CB"/>
+    <!-- spots -->
+    <circle cx="108" cy="104" r="6" fill="#58D3CB" stroke="none"/>
+    <circle cx="150" cy="124" r="5" fill="#58D3CB" stroke="none"/>
+    <!-- muzzle -->
+    <ellipse cx="128" cy="132" rx="36" ry="26" fill="#FFFFFF"/>
+    <circle cx="128" cy="128" r="6" fill="#14213D" stroke="none"/>
+    <path d="M114 140 q14 12 28 0" fill="none"/>
+    <!-- eyes -->
+    <circle cx="108" cy="108" r="6" fill="#14213D" stroke="none"/>
+    <circle cx="148" cy="108" r="6" fill="#14213D" stroke="none"/>
+    <!-- bandana -->
+    <path d="M84 158 L128 182 L172 158 L128 154 Z" fill="#FF6B6B"/>
+    <!-- little badge on bandana -->
+    <circle cx="128" cy="168" r="6" fill="#FFC857" stroke="#14213D" stroke-width="3"/>
+    <!-- chest hint -->
+    <path d="M96 176 q32 28 64 0" fill="#E6EEF2"/>
+  </g>
+</svg>
