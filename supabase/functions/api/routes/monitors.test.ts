@@ -1,6 +1,6 @@
 // Test for monitors API endpoint
 import { assertEquals, assertExists } from "jsr:@std/assert";
-import { Hono } from "jsr:@hono/hono";
+import { Hono } from "jsr:@hono/hono@4.9.8";
 import { monitors } from "./monitors.ts";
 
 // Mock authentication middleware for testing

@@ -1,14 +1,14 @@
 // Main Hono application entry point
-import { Hono } from "jsr:@hono/hono";
+import { Hono } from "jsr:@hono/hono@4.9.8";
 // Import middleware
-import { logger } from "jsr:@hono/hono/logger";
+import { logger } from "jsr:@hono/hono@4.9.8/logger";
 import { corsMiddleware, webhookCorsMiddleware } from "./middleware/cors.ts";
 import {
   adminMiddleware,
   authMiddleware,
   // optionalAuthMiddleware,
 } from "./middleware/auth.ts";
-import { errorHandler } from "./middleware/error-handler.ts";
+import { errorHandler } from "./middleware/error.ts";
 
 // Import route handlers
 import { admin } from "./routes/admin.ts";
@@ -18,7 +18,8 @@ import { notifications } from "./routes/notifications.ts";
 import { webhooks } from "./routes/webhooks.ts";
 
 // Create main Hono application
-const api = new Hono();
+import type { AppVariables } from "./types.ts";
+const api = new Hono<{ Variables: AppVariables }>();
 
 api.use(logger());
 

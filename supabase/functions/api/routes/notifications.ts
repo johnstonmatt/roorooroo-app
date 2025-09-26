@@ -1,7 +1,8 @@
 // Notifications routes
-import { Hono } from "jsr:@hono/hono";
+import { Hono } from "jsr:@hono/hono@4.9.8";
+import type { AppVariables } from "../types.ts";
 
-const notifications = new Hono();
+const notifications = new Hono<{ Variables: AppVariables }>();
 
 /**
  * GET /api/notifications

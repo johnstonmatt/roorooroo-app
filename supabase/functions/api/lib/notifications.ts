@@ -45,14 +45,12 @@ export class NotificationService {
   ): Promise<NotificationResult[]> {
     const results: NotificationResult[] = [];
 
-    // Process all notifications concurrently
     const notificationPromises = channels.map((channel) =>
       this.sendSingleNotification(payload, channel)
     );
 
     const notificationResults = await Promise.allSettled(notificationPromises);
 
-    // Process results and log to database
     for (let i = 0; i < notificationResults.length; i++) {
       const result = notificationResults[i];
       const channel = channels[i];
@@ -64,7 +62,7 @@ export class NotificationService {
         const errorResult: NotificationResult = {
           success: false,
           channel,
-          error: result.reason?.message || "Unknown error",
+          error: (result as any).reason?.message || "Unknown error",
         };
         results.push(errorResult);
         await this.logNotification(payload, channel, errorResult);
@@ -74,9 +72,6 @@ export class NotificationService {
     return results;
   }
 
-  /**
-   * Send notification to a single channel
-   */
   private async sendSingleNotification(
     payload: NotificationPayload,
     channel: NotificationChannel,
@@ -101,24 +96,18 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Send email notification
-   */
   private async sendEmailNotification(
     payload: NotificationPayload,
     channel: NotificationChannel,
   ): Promise<NotificationResult> {
     const message = this.formatEmailMessage(payload);
 
-    // In a real app, you'd integrate with an email service like Resend, SendGrid, etc.
-    // For now, we'll just log the notification
     console.log("Email notification:", {
       to: channel.address,
       subject: this.getEmailSubject(payload),
       message,
     });
 
-    // Simulate email sending success
     return {
       success: true,
       channel,
@@ -128,9 +117,6 @@ export class NotificationService {
     };
   }
 
-  /**
-   * Send SMS notification
-   */
   private async sendSMSNotification(
     payload: NotificationPayload,
     channel: NotificationChannel,
@@ -154,9 +140,6 @@ export class NotificationService {
     };
   }
 
-  /**
-   * Format email message content
-   */
   private formatEmailMessage(payload: NotificationPayload): string {
     const { monitor, type, contentSnippet, errorMessage } = payload;
 
@@ -196,9 +179,6 @@ export class NotificationService {
     return message;
   }
 
-  /**
-   * Format SMS message content (shorter for SMS limits)
-   */
   private formatSMSMessage(payload: NotificationPayload): string {
     const { monitor, type, contentSnippet, errorMessage } = payload;
 
@@ -226,7 +206,6 @@ export class NotificationService {
 
     message += ` ${monitor.url}`;
 
-    // Ensure SMS doesn't exceed 160 characters
     if (message.length > 160) {
       message = message.substring(0, 157) + "...";
     }
@@ -234,9 +213,6 @@ export class NotificationService {
     return message;
   }
 
-  /**
-   * Get email subject line
-   */
   private getEmailSubject(payload: NotificationPayload): string {
     const { monitor, type } = payload;
 
@@ -252,17 +228,13 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Log notification to database
-   */
   private async logNotification(
     payload: NotificationPayload,
     channel: NotificationChannel,
     result: NotificationResult,
   ): Promise<void> {
     try {
-      // Get Supabase client from utils
-      const { createServiceClient } = await import("../utils/supabase.ts");
+      const { createServiceClient } = await import("./supabase.ts");
       const supabase = createServiceClient();
 
       const message = channel.type === "email"
@@ -279,13 +251,9 @@ export class NotificationService {
       });
     } catch (error) {
       console.error("Failed to log notification:", error);
-      // Don't throw here as we don't want logging failures to break notifications
     }
   }
 
-  /**
-   * Get notification statistics for a user
-   */
   async getNotificationStats(
     userId: string,
     timeframe: "hour" | "day" | "week" = "day",
@@ -296,8 +264,7 @@ export class NotificationService {
     byChannel: Record<string, number>;
   }> {
     try {
-      // Get Supabase client from utils
-      const { createServiceClient } = await import("../utils/supabase.ts");
+      const { createServiceClient } = await import("./supabase.ts");
       const supabase = createServiceClient();
 
       let timeFilter = new Date();
@@ -331,7 +298,6 @@ export class NotificationService {
         byChannel: {} as Record<string, number>,
       };
 
-      // Count by channel
       notifications?.forEach((notification) => {
         stats.byChannel[notification.channel] =
           (stats.byChannel[notification.channel] || 0) + 1;

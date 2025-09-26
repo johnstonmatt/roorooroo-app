@@ -1,7 +1,7 @@
 // SMS status webhooks routes
-import { Hono } from "jsr:@hono/hono";
-import { config, logger } from "../utils/config.ts";
-import { createServiceClient } from "../utils/supabase.ts";
+import { Hono } from "jsr:@hono/hono@4.9.8";
+import { config, logger } from "../lib/config.ts";
+import { createServiceClient } from "../lib/supabase.ts";
 
 const webhooks = new Hono();
 

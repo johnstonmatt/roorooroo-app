@@ -31,9 +31,6 @@ interface Config {
   };
 }
 
-/**
- * Get required environment variable or throw error
- */
 function getRequiredEnv(key: string): string {
   const value = Deno.env.get(key);
   if (!value) {
@@ -42,16 +39,10 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-/**
- * Get optional environment variable with default value
- */
 function getOptionalEnv(key: string, defaultValue: string): string {
   return Deno.env.get(key) || defaultValue;
 }
 
-/**
- * Get numeric environment variable with default value
- */
 function getNumericEnv(key: string, defaultValue: number): number {
   const value = Deno.env.get(key);
   if (!value) return defaultValue;
@@ -59,12 +50,9 @@ function getNumericEnv(key: string, defaultValue: number): number {
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
-/**
- * Application configuration object
- */
 export const config: Config = {
   supabase: {
-    url: getRequiredEnv("OG_SUPABASE_URL"),
+    url: getRequiredEnv("SUPABASE_URL"),
     anonKey: getRequiredEnv("SUPABASE_ANON_KEY"),
     serviceRoleKey: getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
   },
@@ -93,17 +81,14 @@ export const config: Config = {
     maxSMSPerUserPerHour: getNumericEnv("SMS_MAX_PER_USER_PER_HOUR", 10),
     maxSMSPerUserPerDay: getNumericEnv("SMS_MAX_PER_USER_PER_DAY", 50),
     maxMonthlyCostUSD: getNumericEnv("SMS_MAX_MONTHLY_COST_USD", 25.0),
-    costPerSMSUSD: getNumericEnv("SMS_COST_PER_SMS_USD", 0.0075), // Default Twilio cost
+    costPerSMSUSD: getNumericEnv("SMS_COST_PER_SMS_USD", 0.0075),
   },
 };
 
-/**
- * Validate that all required configuration is present
- */
 export function validateConfig(): void {
   const requiredKeys = [
-    "OG_SUPABASE_URL",
-    "OG_SUPABASE_ANON_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
     "TWILIO_ACCOUNT_SID",
     "TWILIO_AUTH_TOKEN",
@@ -119,30 +104,18 @@ export function validateConfig(): void {
   }
 }
 
-/**
- * Check if running in development mode
- */
 export function isDevelopment(): boolean {
   return config.app.environment === "development";
 }
 
-/**
- * Check if running in production mode
- */
 export function isProduction(): boolean {
   return config.app.environment === "production";
 }
 
-/**
- * Get log level for filtering logs
- */
 export function getLogLevel(): string {
   return config.app.logLevel;
 }
 
-/**
- * Simple logger with level filtering
- */
 export const logger = {
   debug: (message: string, ...args: any[]) => {
     if (["debug"].includes(config.app.logLevel)) {

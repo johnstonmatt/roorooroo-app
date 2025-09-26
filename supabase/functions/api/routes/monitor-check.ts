@@ -1,9 +1,10 @@
 // Monitor checking logic routes
-import { Hono } from "jsr:@hono/hono";
-import { validateAndThrow } from "../utils/validation.ts";
-import { NotificationService } from "../services/notification-service.ts";
+import { Hono } from "jsr:@hono/hono@4.9.8";
+import type { AppVariables } from "../types.ts";
+import { validateAndThrow } from "../lib/validation.ts";
+import { NotificationService } from "../lib/notifications.ts";
 
-const monitorCheck = new Hono();
+const monitorCheck = new Hono<{ Variables: AppVariables }>();
 
 interface MonitorCheckRequest {
   monitorId: string;

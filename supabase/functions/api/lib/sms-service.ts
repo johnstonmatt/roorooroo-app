@@ -1,5 +1,4 @@
-// SMS sending service with Twilio integration for Deno
-import { config, logger } from "../utils/config.ts";
+import { config, logger } from "./config.ts";
 import { SMSRateLimiter } from "./sms-rate-limiter.ts";
 
 export interface SMSMessage {
@@ -26,19 +25,14 @@ export interface SMSDeliveryStatus {
 export class SMSService {
   private rateLimiter = new SMSRateLimiter();
   private readonly RETRY_ATTEMPTS = 3;
-  private readonly RETRY_DELAYS = [1000, 4000, 16000]; // exponential backoff in ms
+  private readonly RETRY_DELAYS = [1000, 4000, 16000];
 
   constructor() {
-    // Initialize SMS service for Deno environment
     logger.info("SMS Service initialized for Deno environment");
   }
 
-  /**
-   * Send SMS message with comprehensive rate limiting and security checks
-   */
   async sendSMS(message: SMSMessage): Promise<SMSResult> {
     try {
-      // Check comprehensive rate limits and cost controls
       const rateLimitResult = await this.rateLimiter.checkRateLimit(
         message.userId,
       );
@@ -55,7 +49,6 @@ export class SMSService {
         };
       }
 
-      // Log rate limit status in development
       if (config.app.environment === "development") {
         logger.info("SMS rate limit check passed:", {
           userId: message.userId,
@@ -65,10 +58,8 @@ export class SMSService {
         });
       }
 
-      // Attempt to send with retry logic
       const result = await this.sendWithRetry(message);
 
-      // Record usage if successful
       if (result.success) {
         await this.rateLimiter.recordSMSUsage(message.userId);
       }
@@ -85,9 +76,6 @@ export class SMSService {
     }
   }
 
-  /**
-   * Validate SMS delivery status
-   */
   async validateDelivery(messageId: string): Promise<SMSDeliveryStatus> {
     try {
       const response = await this.makeTwilioRequest(
@@ -117,9 +105,6 @@ export class SMSService {
     }
   }
 
-  /**
-   * Send SMS with retry logic and secure error handling
-   */
   private async sendWithRetry(
     message: SMSMessage,
     attempt: number = 0,
@@ -145,11 +130,10 @@ export class SMSService {
 
       const twilioMessage = await response.json();
 
-      // Log successful send (without sensitive data)
       if (config.app.environment === "development") {
         logger.info("SMS sent successfully:", {
           messageId: twilioMessage.sid,
-          to: message.to.replace(/\d(?=\d{4})/g, "*"), // Mask phone number
+          to: message.to.replace(/\d(?=\d{4})/g, "*"),
           userId: message.userId,
           monitorId: message.monitorId,
         });
@@ -167,7 +151,6 @@ export class SMSService {
         attempt: attempt + 1,
       });
 
-      // If we haven't exhausted retries and it's a retryable error
       if (attempt < this.RETRY_ATTEMPTS - 1 && this.isRetryableError(error)) {
         const delay = this.RETRY_DELAYS[attempt];
         logger.info(`Retrying SMS send in ${delay}ms...`);
@@ -183,9 +166,6 @@ export class SMSService {
     }
   }
 
-  /**
-   * Make authenticated request to Twilio API
-   */
   private async makeTwilioRequest(
     endpoint: string,
     method: "GET" | "POST",
@@ -194,7 +174,6 @@ export class SMSService {
     const url =
       `https://api.twilio.com/2010-04-01/Accounts/${config.twilio.accountSid}/${endpoint}.json`;
 
-    // Create basic auth header
     const credentials = btoa(
       `${config.twilio.accountSid}:${config.twilio.authToken}`,
     );
@@ -211,12 +190,8 @@ export class SMSService {
     });
   }
 
-  /**
-   * Sanitize error messages to prevent information leakage
-   */
   private sanitizeErrorMessage(error: any): string {
     if (error instanceof Error) {
-      // Don't expose internal Twilio errors in production
       if (config.app.environment === "production") {
         return "Failed to send SMS. Please try again later.";
       }
@@ -232,27 +207,22 @@ export class SMSService {
     return "Failed to send SMS";
   }
 
-  /**
-   * Determine if error is retryable
-   */
   private isRetryableError(error: any): boolean {
-    // Twilio error codes that are retryable
     const retryableErrorCodes = [
-      20429, // Too Many Requests
-      21610, // Message cannot be sent to the destination number
-      30001, // Queue overflow
-      30002, // Account suspended
-      30003, // Unreachable destination handset
-      30004, // Message blocked
-      30005, // Unknown destination handset
-      30006, // Landline or unreachable carrier
+      20429,
+      21610,
+      30001,
+      30002,
+      30003,
+      30004,
+      30005,
+      30006,
     ];
 
     if (error?.code && retryableErrorCodes.includes(error.code)) {
       return true;
     }
 
-    // Network errors are generally retryable
     if (
       error?.message?.includes("ECONNRESET") ||
       error?.message?.includes("ETIMEDOUT") ||
@@ -264,9 +234,6 @@ export class SMSService {
     return false;
   }
 
-  /**
-   * Get comprehensive rate limit status for a user
-   */
   async getRateLimitStatus(userId: string): Promise<
     {
       hourlyRemaining: number;
@@ -297,9 +264,6 @@ export class SMSService {
     }
   }
 
-  /**
-   * Check if SMS service is properly configured
-   */
   isConfigured(): boolean {
     return !!(
       config.twilio.accountSid &&
@@ -308,9 +272,6 @@ export class SMSService {
     );
   }
 
-  /**
-   * Get service health status
-   */
   getHealthStatus(): {
     configured: boolean;
     environment: string;

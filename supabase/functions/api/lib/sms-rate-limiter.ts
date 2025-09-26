@@ -1,10 +1,5 @@
-/**
- * SMS Rate Limiting and Cost Monitoring Service
- * Tracks SMS usage per user and implements safeguards
- */
-
-import { createServiceClient } from "../utils/supabase.ts";
-import { config, logger } from "../utils/config.ts";
+import { createServiceClient } from "./supabase.ts";
+import { config, logger } from "./config.ts";
 
 interface SMSUsage {
   userId: string;
@@ -26,18 +21,13 @@ interface RateLimitResult {
 }
 
 export class SMSRateLimiter {
-  /**
-   * Check if user is allowed to send SMS based on rate limits
-   */
   async checkRateLimit(userId: string): Promise<RateLimitResult> {
     try {
       const usage = await this.getUserUsage(userId);
       const now = new Date();
 
-      // Reset counters if time periods have passed
       const updatedUsage = this.resetCountersIfNeeded(usage, now);
 
-      // Check hourly limit
       if (updatedUsage.hourlyCount >= config.smsLimits.maxSMSPerUserPerHour) {
         return {
           allowed: false,
@@ -47,7 +37,6 @@ export class SMSRateLimiter {
         };
       }
 
-      // Check daily limit
       if (updatedUsage.dailyCount >= config.smsLimits.maxSMSPerUserPerDay) {
         return {
           allowed: false,
@@ -57,7 +46,6 @@ export class SMSRateLimiter {
         };
       }
 
-      // Check monthly cost limit
       const projectedCost = updatedUsage.monthlyCostUSD +
         config.smsLimits.costPerSMSUSD;
       if (projectedCost > config.smsLimits.maxMonthlyCostUSD) {
@@ -79,7 +67,6 @@ export class SMSRateLimiter {
       };
     } catch (error) {
       logger.error("Rate limit check failed:", error);
-      // Fail closed - deny if we can't check limits
       return {
         allowed: false,
         reason: "Unable to verify SMS limits. Please try again later.",
@@ -87,16 +74,12 @@ export class SMSRateLimiter {
     }
   }
 
-  /**
-   * Record SMS usage after successful send
-   */
   async recordSMSUsage(userId: string): Promise<void> {
     try {
       const supabase = createServiceClient();
       const now = new Date();
       const cost = config.smsLimits.costPerSMSUSD;
 
-      // Use upsert to handle concurrent updates
       const { error } = await supabase
         .from("sms_usage")
         .upsert({
@@ -122,9 +105,6 @@ export class SMSRateLimiter {
     }
   }
 
-  /**
-   * Get current usage for a user
-   */
   private async getUserUsage(userId: string): Promise<SMSUsage> {
     const supabase = createServiceClient();
 
@@ -135,7 +115,6 @@ export class SMSRateLimiter {
       .single();
 
     if (error || !data) {
-      // Return default usage for new users
       const now = new Date();
       return {
         userId,
@@ -161,9 +140,6 @@ export class SMSRateLimiter {
     };
   }
 
-  /**
-   * Reset counters if time periods have elapsed
-   */
   private resetCountersIfNeeded(usage: SMSUsage, now: Date): SMSUsage {
     const currentHour = this.getHourStart(now);
     const currentDay = this.getDayStart(now);
@@ -171,19 +147,16 @@ export class SMSRateLimiter {
 
     let updated = { ...usage };
 
-    // Reset hourly counter
     if (currentHour > usage.lastResetHour) {
       updated.hourlyCount = 0;
       updated.lastResetHour = currentHour;
     }
 
-    // Reset daily counter
     if (currentDay > usage.lastResetDay) {
       updated.dailyCount = 0;
       updated.lastResetDay = currentDay;
     }
 
-    // Reset monthly counter and cost
     if (currentMonth > usage.lastResetMonth) {
       updated.monthlyCount = 0;
       updated.monthlyCostUSD = 0;
@@ -193,27 +166,18 @@ export class SMSRateLimiter {
     return updated;
   }
 
-  /**
-   * Get start of current hour
-   */
   private getHourStart(date: Date): Date {
     const start = new Date(date);
     start.setMinutes(0, 0, 0);
     return start;
   }
 
-  /**
-   * Get start of current day
-   */
   private getDayStart(date: Date): Date {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
     return start;
   }
 
-  /**
-   * Get start of current month
-   */
   private getMonthStart(date: Date): Date {
     const start = new Date(date);
     start.setDate(1);
@@ -221,9 +185,6 @@ export class SMSRateLimiter {
     return start;
   }
 
-  /**
-   * Get usage statistics for a user (for admin/monitoring)
-   */
   async getUserUsageStats(userId: string): Promise<SMSUsage | null> {
     try {
       const usage = await this.getUserUsage(userId);

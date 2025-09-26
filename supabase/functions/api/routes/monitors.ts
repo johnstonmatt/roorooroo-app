@@ -1,9 +1,10 @@
 // Monitor CRUD operations routes
-import { Hono } from "jsr:@hono/hono";
-import { commonSchemas, validateAndThrow } from "../utils/validation.ts";
-import { createMonitorCronJob, validateCronJobConfig } from "../utils/cron.ts";
+import { Hono } from "jsr:@hono/hono@4.9.8";
+import type { AppVariables } from "../types.ts";
+import { validateAndThrow } from "../lib/validation.ts";
+import { createMonitorCronJob, validateCronJobConfig } from "../lib/cron.ts";
 
-const monitors = new Hono();
+const monitors = new Hono<{ Variables: AppVariables }>();
 
 /**
  * GET /api/monitors

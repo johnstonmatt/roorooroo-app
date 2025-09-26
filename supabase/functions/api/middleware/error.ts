@@ -1,8 +1,5 @@
-import { Context } from "jsr:@hono/hono@4.9.8";
+import { Context } from "jsr:@hono/hono@^4.6.3";
 
-/**
- * Custom error classes for better error handling
- */
 export class ValidationError extends Error {
   constructor(message: string, public field?: string) {
     super(message);
@@ -38,10 +35,6 @@ export class RateLimitError extends Error {
   }
 }
 
-/**
- * Global error handling middleware
- * Catches and formats errors consistently across the API
- */
 export function errorHandler(error: Error, c: Context) {
   console.error("API Error:", {
     name: error.name,
@@ -53,7 +46,6 @@ export function errorHandler(error: Error, c: Context) {
     timestamp: new Date().toISOString(),
   });
 
-  // Handle specific error types
   switch (error.name) {
     case "ValidationError":
       return c.json({
@@ -86,14 +78,12 @@ export function errorHandler(error: Error, c: Context) {
         message: error.message,
       }, 429);
 
-    // Handle Supabase errors
     case "PostgrestError":
       return c.json({
         error: "Database error",
         message: "An error occurred while processing your request",
       }, 500);
 
-    // Handle network/fetch errors
     case "TypeError":
       if (error.message.includes("fetch")) {
         return c.json({
@@ -103,7 +93,6 @@ export function errorHandler(error: Error, c: Context) {
       }
       break;
 
-    // Handle JSON parsing errors
     case "SyntaxError":
       if (error.message.includes("JSON")) {
         return c.json({
@@ -114,7 +103,6 @@ export function errorHandler(error: Error, c: Context) {
       break;
   }
 
-  // Default error response for unhandled errors
   const isDevelopment = Deno.env.get("DENO_DEPLOYMENT_ID") === undefined;
 
   return c.json({
@@ -122,34 +110,4 @@ export function errorHandler(error: Error, c: Context) {
     message: isDevelopment ? error.message : "An unexpected error occurred",
     ...(isDevelopment && { stack: error.stack }),
   }, 500);
-}
-
-/**
- * Validation helper that throws ValidationError
- */
-export function validateRequired(value: any, fieldName: string): void {
-  if (value === undefined || value === null || value === "") {
-    throw new ValidationError(`${fieldName} is required`, fieldName);
-  }
-}
-
-/**
- * Validation helper for email format
- */
-export function validateEmail(email: string): void {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new ValidationError("Invalid email format", "email");
-  }
-}
-
-/**
- * Validation helper for UUID format
- */
-export function validateUUID(uuid: string, fieldName: string = "id"): void {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(uuid)) {
-    throw new ValidationError(`Invalid ${fieldName} format`, fieldName);
-  }
 }

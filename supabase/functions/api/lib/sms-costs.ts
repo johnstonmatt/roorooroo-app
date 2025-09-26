@@ -1,10 +1,5 @@
-/**
- * SMS Cost Monitoring and Alerting Service
- * Tracks SMS costs and provides alerts when thresholds are exceeded
- */
-
-import { createServiceClient } from "../utils/supabase.ts";
-import { config, logger } from "../utils/config.ts";
+import { createServiceClient } from "./supabase.ts";
+import { config, logger } from "./config.ts";
 
 interface CostAlert {
   userId: string;
@@ -27,11 +22,8 @@ interface SystemCostStats {
 }
 
 export class SMSCostMonitor {
-  private readonly maxMonthlyCostUSD = 100; // Default limit, can be configured
+  private readonly maxMonthlyCostUSD = 100;
 
-  /**
-   * Check if user is approaching cost limits
-   */
   async checkUserCostAlert(userId: string): Promise<CostAlert | null> {
     try {
       const supabase = createServiceClient();
@@ -50,7 +42,6 @@ export class SMSCostMonitor {
       const limit = this.maxMonthlyCostUSD;
       const percentageUsed = (currentCost / limit) * 100;
 
-      // Determine alert level
       let alertLevel: CostAlert["alertLevel"];
       if (percentageUsed >= 100) {
         alertLevel = "exceeded";
@@ -59,7 +50,7 @@ export class SMSCostMonitor {
       } else if (percentageUsed >= 75) {
         alertLevel = "warning";
       } else {
-        return null; // No alert needed
+        return null;
       }
 
       return {
@@ -75,9 +66,6 @@ export class SMSCostMonitor {
     }
   }
 
-  /**
-   * Get system-wide cost statistics
-   */
   async getSystemCostStats(): Promise<SystemCostStats | null> {
     try {
       const supabase = createServiceClient();
@@ -104,7 +92,6 @@ export class SMSCostMonitor {
         ? totalMonthlyCostUSD / activeUsers
         : 0;
 
-      // Get top 10 users by cost
       const topUsers = data
         .sort((a, b) => (b.monthly_cost_usd || 0) - (a.monthly_cost_usd || 0))
         .slice(0, 10)
@@ -127,9 +114,6 @@ export class SMSCostMonitor {
     }
   }
 
-  /**
-   * Get users who have exceeded cost thresholds
-   */
   async getUsersExceedingLimits(): Promise<CostAlert[]> {
     try {
       const supabase = createServiceClient();
@@ -137,7 +121,7 @@ export class SMSCostMonitor {
       const { data, error } = await supabase
         .from("sms_usage")
         .select("user_id, monthly_cost_usd")
-        .gte("monthly_cost_usd", this.maxMonthlyCostUSD * 0.75); // 75% threshold
+        .gte("monthly_cost_usd", this.maxMonthlyCostUSD * 0.75);
 
       if (error || !data) {
         return [];
@@ -175,9 +159,6 @@ export class SMSCostMonitor {
     }
   }
 
-  /**
-   * Log cost alert for monitoring
-   */
   async logCostAlert(alert: CostAlert): Promise<void> {
     try {
       logger.warn("SMS Cost Alert:", {
@@ -188,7 +169,6 @@ export class SMSCostMonitor {
         percentageUsed: alert.percentageUsed.toFixed(1) + "%",
       });
 
-      // In production, you might want to send this to a monitoring service
       if (
         config.app.environment === "production" &&
         alert.alertLevel === "exceeded"
@@ -200,9 +180,6 @@ export class SMSCostMonitor {
     }
   }
 
-  /**
-   * Reset monthly costs (typically called by a cron job)
-   */
   async resetMonthlyCosts(): Promise<{ resetCount: number; error?: string }> {
     try {
       const supabase = createServiceClient();
@@ -214,7 +191,7 @@ export class SMSCostMonitor {
           monthly_cost_usd: 0,
           last_reset_month: new Date().toISOString(),
         })
-        .neq("monthly_count", 0) // Only update records that have usage
+        .neq("monthly_count", 0)
         .select("user_id");
 
       if (error) {
@@ -234,9 +211,6 @@ export class SMSCostMonitor {
     }
   }
 
-  /**
-   * Get cost projection based on current usage
-   */
   async getCostProjection(userId: string): Promise<
     {
       currentMonthlyCost: number;
@@ -262,7 +236,6 @@ export class SMSCostMonitor {
       const resetDate = new Date(data.last_reset_month);
       const now = new Date();
 
-      // Calculate days into the month
       const daysIntoMonth = Math.max(
         1,
         Math.floor(
@@ -272,7 +245,6 @@ export class SMSCostMonitor {
       const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
         .getDate();
 
-      // Project monthly cost based on current usage rate
       const dailyRate = currentCost / daysIntoMonth;
       const projectedMonthlyCost = dailyRate * daysInMonth;
 

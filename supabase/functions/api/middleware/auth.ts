@@ -1,14 +1,18 @@
 import { Context, Next } from "jsr:@hono/hono@^4.6.3";
+import type { AppVariables } from "../types.ts";
 import {
   createSupabaseClient,
   createSupabaseClientWithAuth,
-} from "../utils/supabase.ts";
+} from "../lib/supabase.ts";
 
 /**
  * Authentication middleware that validates Supabase JWT tokens
  * Extracts user information and makes it available in the context
  */
-export async function authMiddleware(c: Context, next: Next) {
+export async function authMiddleware(
+  c: Context<{ Variables: AppVariables }>,
+  next: Next,
+) {
   const authHeader = c.req.header("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
@@ -47,7 +51,10 @@ export async function authMiddleware(c: Context, next: Next) {
  * Optional authentication middleware that doesn't require authentication
  * but extracts user info if a valid token is provided
  */
-export async function optionalAuthMiddleware(c: Context, next: Next) {
+export async function optionalAuthMiddleware(
+  c: Context<{ Variables: AppVariables }>,
+  next: Next,
+) {
   const authHeader = c.req.header("Authorization");
 
   if (authHeader?.startsWith("Bearer ")) {
@@ -77,7 +84,10 @@ export async function optionalAuthMiddleware(c: Context, next: Next) {
  * Admin role validation middleware
  * Should be used after authMiddleware to ensure user has admin privileges
  */
-export async function adminMiddleware(c: Context, next: Next) {
+export async function adminMiddleware(
+  c: Context<{ Variables: AppVariables }>,
+  next: Next,
+) {
   const user = c.get("user");
 
   if (!user) {
@@ -86,6 +96,9 @@ export async function adminMiddleware(c: Context, next: Next) {
 
   // Check if user has admin role in their metadata or profile
   const supabase = c.get("supabase");
+  if (!supabase) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
 
   try {
     const { data: profile, error } = await supabase

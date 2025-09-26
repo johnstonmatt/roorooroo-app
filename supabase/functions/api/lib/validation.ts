@@ -1,4 +1,4 @@
-import { ValidationError } from "../middleware/error-handler.ts";
+import { ValidationError } from "../middleware/error.ts";
 
 /**
  * Validation schema types
@@ -37,7 +37,6 @@ export function validateRequest(
   for (const [field, rules] of Object.entries(schema)) {
     const value = data[field];
 
-    // Check required fields
     if (
       rules.required && (value === undefined || value === null || value === "")
     ) {
@@ -45,14 +44,12 @@ export function validateRequest(
       continue;
     }
 
-    // Skip validation for optional empty fields
     if (
       !rules.required && (value === undefined || value === null || value === "")
     ) {
       continue;
     }
 
-    // Type validation
     if (rules.type) {
       const typeError = validateType(field, value, rules.type);
       if (typeError) {
@@ -61,7 +58,6 @@ export function validateRequest(
       }
     }
 
-    // String length validation
     if (typeof value === "string") {
       if (rules.minLength && value.length < rules.minLength) {
         errors.push({
@@ -78,7 +74,6 @@ export function validateRequest(
       }
     }
 
-    // Numeric range validation
     if (typeof value === "number") {
       if (rules.min !== undefined && value < rules.min) {
         errors.push({
@@ -94,14 +89,12 @@ export function validateRequest(
       }
     }
 
-    // Pattern validation
     if (
       rules.pattern && typeof value === "string" && !rules.pattern.test(value)
     ) {
       errors.push({ field, message: `${field} format is invalid` });
     }
 
-    // Enum validation
     if (rules.enum && !rules.enum.includes(value)) {
       errors.push({
         field,
@@ -109,7 +102,6 @@ export function validateRequest(
       });
     }
 
-    // Custom validation
     if (rules.custom) {
       const customResult = rules.custom(value);
       if (customResult !== true) {
@@ -127,9 +119,6 @@ export function validateRequest(
   };
 }
 
-/**
- * Validate specific data types
- */
 function validateType(
   field: string,
   value: any,
@@ -182,26 +171,17 @@ function validateType(
   return null;
 }
 
-/**
- * Email validation regex
- */
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
-/**
- * UUID validation regex
- */
 function isValidUUID(uuid: string): boolean {
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 }
 
-/**
- * URL validation
- */
 function isValidURL(url: string): boolean {
   try {
     new URL(url);
@@ -211,17 +191,11 @@ function isValidURL(url: string): boolean {
   }
 }
 
-/**
- * Phone number validation (basic E.164 format)
- */
 function isValidPhone(phone: string): boolean {
   const phoneRegex = /^\+[1-9]\d{1,14}$/;
   return phoneRegex.test(phone);
 }
 
-/**
- * Validate and throw ValidationError if invalid
- */
 export function validateAndThrow(schema: ValidationSchema, data: any): void {
   const result = validateRequest(schema, data);
   if (!result.valid) {
@@ -230,9 +204,6 @@ export function validateAndThrow(schema: ValidationSchema, data: any): void {
   }
 }
 
-/**
- * Common validation schemas
- */
 export const commonSchemas = {
   monitor: {
     name: {
@@ -243,7 +214,7 @@ export const commonSchemas = {
     },
     url: { required: true, type: "url" as const },
     pattern: { required: false, type: "string" as const, maxLength: 500 },
-    interval: { required: true, type: "number" as const, min: 60, max: 86400 }, // 1 minute to 24 hours
+    interval: { required: true, type: "number" as const, min: 60, max: 86400 },
     enabled: { required: false, type: "boolean" as const },
   },
 
@@ -276,26 +247,3 @@ export const commonSchemas = {
     From: { required: false, type: "phone" as const },
   },
 };
-
-/**
- * Sanitize input data by removing potentially dangerous characters
- */
-export function sanitizeInput(data: any): any {
-  if (typeof data === "string") {
-    return data.trim().replace(/[<>]/g, "");
-  }
-
-  if (Array.isArray(data)) {
-    return data.map(sanitizeInput);
-  }
-
-  if (typeof data === "object" && data !== null) {
-    const sanitized: any = {};
-    for (const [key, value] of Object.entries(data)) {
-      sanitized[key] = sanitizeInput(value);
-    }
-    return sanitized;
-  }
-
-  return data;
-}

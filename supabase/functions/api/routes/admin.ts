@@ -1,9 +1,10 @@
 // Admin SMS cost monitoring routes
-import { Hono } from "jsr:@hono/hono@^4.6.3";
-import { SMSCostMonitor } from "../services/sms-cost-monitor.ts";
-import { logger } from "../utils/config.ts";
+import { Hono } from "jsr:@hono/hono@4.9.8";
+import type { AppVariables } from "../types.ts";
+import { SMSCostMonitor } from "../lib/sms-costs.ts";
+import { logger } from "../lib/config.ts";
 
-const admin = new Hono();
+const admin = new Hono<{ Variables: AppVariables }>();
 const costMonitor = new SMSCostMonitor();
 
 /**
