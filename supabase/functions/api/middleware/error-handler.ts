@@ -124,6 +124,16 @@ export function errorHandler(error: Error, c: Context) {
   }, 500);
 }
 
+export function syncHandler(fn: (c: Context) => Response) {
+  return (c: Context) => {
+    try {
+      return fn(c);
+    } catch (error) {
+      return errorHandler(error as Error, c);
+    }
+  };
+}
+
 /**
  * Async error wrapper for route handlers
  * Catches async errors and passes them to the error handler

@@ -1,6 +1,7 @@
 {
     "tasks": {
         "build": "cd frontend && pnpm build",
-        "deploy": "npx supabase functions deploy"
+        "deploy": "npx supabase functions deploy",
+        "fmt": "deno fmt ./supabase/functions"
     }
 }

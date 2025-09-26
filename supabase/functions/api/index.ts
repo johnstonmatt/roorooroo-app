@@ -1,14 +1,13 @@
 // Main Hono application entry point
 import { Hono } from "jsr:@hono/hono";
-
 // Import middleware
 import { corsMiddleware, webhookCorsMiddleware } from "./middleware/cors.ts";
 import {
   adminMiddleware,
   authMiddleware,
-  optionalAuthMiddleware,
+  // optionalAuthMiddleware,
 } from "./middleware/auth.ts";
-import { asyncHandler, errorHandler } from "./middleware/error-handler.ts";
+import { errorHandler, syncHandler } from "./middleware/error-handler.ts";
 
 // Import route handlers
 import { admin } from "./routes/admin.ts";
@@ -36,23 +35,23 @@ api.use("*", async (c, next) => {
 // Health check endpoint (no auth required)
 api.get(
   "/health",
-  asyncHandler(async (c) => {
-    return c.json({
+  syncHandler((c) =>
+    c.json({
       status: "ok",
       timestamp: new Date().toISOString(),
       version: "1.0.0",
       environment: Deno.env.get("DENO_DEPLOYMENT_ID")
         ? "production"
         : "development",
-    });
-  }),
+    })
+  ),
 );
 
 // Status endpoint with basic system info (no auth required)
 api.get(
   "/status",
-  asyncHandler(async (c) => {
-    return c.json({
+  syncHandler((c) =>
+    c.json({
       service: "Hono API Server",
       version: "1.0.0",
       timestamp: new Date().toISOString(),
@@ -69,21 +68,21 @@ api.get(
         notifications: "/notifications",
         webhooks: "/webhooks/*",
       },
-    });
-  }),
+    })
+  ),
 );
 
 // Default root route
 api.get(
-  "/",
-  asyncHandler(async (c) => {
-    return c.json({
+  "/meta",
+  syncHandler((c) =>
+    c.json({
       message: "Hono API Server",
       version: "1.0.0",
       documentation: "Visit /status for available endpoints",
       timestamp: new Date().toISOString(),
-    });
-  }),
+    })
+  ),
 );
 
 // API Routes with authentication middleware
@@ -103,20 +102,21 @@ api.route("/notifications", notifications.use("*", authMiddleware));
 // Webhook routes - use webhook-specific CORS, no auth required for external webhooks
 api.route("/webhooks", webhooks.use("*", webhookCorsMiddleware));
 
+const availableEndpoints = api.routes
+  .filter((route) => route.method !== "ALL")
+  .sort((a, b) => a.path.localeCompare(b.path))
+  .map((route) => `${route.method} ${route.path}`);
+
 // Catch-all route for undefined endpoints
 api.all(
   "*",
-  asyncHandler(async (c) => {
-    // TODO: generate available endpoints dynamically
-    const availableEndpoints = api.routes.map((route) =>
-      `${route.method} ${route.path}`
-    );
-    return c.json({
+  syncHandler((c) =>
+    c.json({
       error: "Not Found",
       message: `Endpoint ${c.req.method} ${c.req.url} not found`,
       availableEndpoints,
-    }, 404);
-  }),
+    }, 404)
+  ),
 );
 
 // Export the app for Supabase Edge Functions
