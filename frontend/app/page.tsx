@@ -289,7 +289,8 @@ export default function HomePage() {
           </div>
           <div className="text-center mt-8 pt-8 border-t border-orange-200">
             <p className="text-sm text-orange-600">
-              © 2025 RooRooRoo. dedicated to Ollie <Emoji char="❤️" />
+              © {`${new Date().getFullYear()}`} RooRooRoo - For Ollie{" "}
+              <Emoji char="❤️" />
               <Emoji char="🐾" />
             </p>
           </div>
