@@ -36,10 +36,6 @@ monitorCheck.post(
   async (c) => {
     const supabase = c.get("supabase");
 
-    if (!supabase) {
-      return c.json({ error: "Authorized Supabase client not found" }, 401);
-    }
-
     try {
       // Parse and validate request body
       const body = await c.req.json();
@@ -49,6 +45,13 @@ monitorCheck.post(
         monitor_id: { required: true, type: "string" as const, minLength: 1 },
         user_id: { required: true, type: "string" as const, minLength: 1 },
       };
+
+      if (!supabase) {
+        return c.json(
+          { error: "Authorized Supabase client not found", body },
+          401,
+        );
+      }
 
       validateAndThrow(checkSchema, body);
 

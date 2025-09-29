@@ -9,7 +9,7 @@ BEGIN;
 
 -- Enable pg_cron extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS net;
+create EXTENSION IF NOT EXISTS pg_net;
 
 -- Function to create a monitor cron job
 CREATE OR REPLACE FUNCTION create_monitor_cron_job(
