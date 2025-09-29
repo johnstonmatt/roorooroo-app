@@ -45,6 +45,8 @@ monitorCheck.post(
         monitor_id: { required: true, type: "string" as const, minLength: 1 },
         user_id: { required: true, type: "string" as const, minLength: 1 },
       };
+      console.log("REQUEST BODY:");
+      console.log(JSON.stringify(body));
 
       if (!supabase) {
         return c.json(
