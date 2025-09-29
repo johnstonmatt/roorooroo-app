@@ -7,8 +7,8 @@ import { NotificationService } from "../lib/notifications.ts";
 const monitorCheck = new Hono<{ Variables: AppVariables }>();
 
 interface MonitorCheckRequest {
-  monitorId: string;
-  userId: string;
+  monitor_id: string;
+  user_id: string;
 }
 
 interface Monitor {
@@ -46,13 +46,13 @@ monitorCheck.post(
 
       // Define validation schema for monitor check request
       const checkSchema = {
-        monitorId: { required: true, type: "string" as const, minLength: 1 },
-        userId: { required: true, type: "string" as const, minLength: 1 },
+        monitor_id: { required: true, type: "string" as const, minLength: 1 },
+        user_id: { required: true, type: "string" as const, minLength: 1 },
       };
 
       validateAndThrow(checkSchema, body);
 
-      const { monitorId, userId } = body as MonitorCheckRequest;
+      const { monitor_id, user_id } = body as MonitorCheckRequest;
 
       // Fetch the monitor from database
       const { data: monitor, error: fetchError } = await supabase
@@ -61,15 +61,15 @@ monitorCheck.post(
         id,
         user_id,
         name,
-        url,
+        url,  
         pattern,
         pattern_type,
         notification_channels,
         last_status,
         is_active
       `)
-        .eq("id", monitorId)
-        .eq("user_id", userId) // Ensure user can only check their own monitors
+        .eq("id", monitor_id)
+        .eq("user_id", user_id) // Ensure user can only check their own monitors
         .single();
 
       if (fetchError || !monitor) {
@@ -91,7 +91,11 @@ monitorCheck.post(
       const checkResult = await performMonitorCheck(monitor as Monitor);
 
       // Log the check result
-      await logMonitorCheck(supabase as unknown as SupabaseLike, monitor.id, checkResult);
+      await logMonitorCheck(
+        supabase as unknown as SupabaseLike,
+        monitor.id,
+        checkResult,
+      );
 
       // Update monitor's last_checked and last_status
       await supabase
