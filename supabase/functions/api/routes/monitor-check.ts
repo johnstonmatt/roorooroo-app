@@ -8,6 +8,7 @@ const monitorCheck = new Hono<{ Variables: AppVariables }>();
 
 interface MonitorCheckRequest {
   monitorId: string;
+  userId: string;
 }
 
 interface Monitor {
@@ -27,17 +28,16 @@ interface Monitor {
 
 /**
  * POST /api/monitors/check
+ * invoked by cron job, not user
  * Execute a monitor check for a specific monitor
- * Requires authentication middleware
  */
 monitorCheck.post(
   "/",
   async (c) => {
-    const userId = c.get("userId");
     const supabase = c.get("supabase");
 
-    if (!userId || !supabase) {
-      return c.json({ error: "Authentication required" }, 401);
+    if (!supabase) {
+      return c.json({ error: "Authorized Supabase client not found" }, 401);
     }
 
     try {
@@ -47,11 +47,12 @@ monitorCheck.post(
       // Define validation schema for monitor check request
       const checkSchema = {
         monitorId: { required: true, type: "string" as const, minLength: 1 },
+        userId: { required: true, type: "string" as const, minLength: 1 },
       };
 
       validateAndThrow(checkSchema, body);
 
-      const { monitorId } = body as MonitorCheckRequest;
+      const { monitorId, userId } = body as MonitorCheckRequest;
 
       // Fetch the monitor from database
       const { data: monitor, error: fetchError } = await supabase
@@ -90,7 +91,7 @@ monitorCheck.post(
       const checkResult = await performMonitorCheck(monitor as Monitor);
 
       // Log the check result
-      await logMonitorCheck(supabase, monitor.id, checkResult);
+      await logMonitorCheck(supabase as unknown as SupabaseLike, monitor.id, checkResult);
 
       // Update monitor's last_checked and last_status
       await supabase
