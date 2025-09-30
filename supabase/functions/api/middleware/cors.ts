@@ -6,28 +6,16 @@ import { cors } from "jsr:@hono/hono@^4.6.3/cors";
  */
 export const corsMiddleware = cors({
   origin: (origin, _c) => {
-    // Allow requests from localhost during development
-    if (origin?.includes("localhost") || origin?.includes("127.0.0.1")) {
+    const prodURL = Deno.env.get("PRODUCTION_FRONTEND_URL");
+    const devURL = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
+
+    if (prodURL) {
+      if (origin === prodURL) return origin;
+    }
+
+    if (origin === devURL) {
       return origin;
     }
-
-    // Allow requests from production frontend domain
-    const allowedOrigins = [
-      Deno.env.get("FRONTEND_URL"),
-      Deno.env.get("PRODUCTION_FRONTEND_URL"),
-      // Add any additional allowed origins
-    ].filter(Boolean);
-
-    if (allowedOrigins.includes(origin)) {
-      return origin;
-    }
-
-    // For development, allow all origins if no specific origins are configured
-    if (Deno.env.get("DENO_DEPLOYMENT_ID") === undefined) {
-      return origin || "*";
-    }
-
-    return null;
   },
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowHeaders: [
