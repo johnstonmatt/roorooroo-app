@@ -33,6 +33,7 @@ export const corsMiddleware = cors({
   allowHeaders: [
     "Content-Type",
     "Authorization",
+    "apikey",
     "X-Cron-Secret",
     "X-Requested-With",
     "Accept",

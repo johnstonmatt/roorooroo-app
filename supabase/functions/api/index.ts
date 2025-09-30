@@ -18,6 +18,7 @@ import { monitors } from "./routes/monitors.ts";
 import { monitorCheck } from "./routes/monitor-check.ts";
 import { notifications } from "./routes/notifications.ts";
 import { webhooks } from "./routes/webhooks.ts";
+import { auth } from "./routes/auth.ts";
 
 // Create main Hono application
 import type { AppVariables } from "./types.ts";
@@ -91,6 +92,9 @@ api.get(
 // Webhook routes - use webhook-specific CORS, no auth required for external webhooks
 api.use("/webhooks/*", webhookCorsMiddleware);
 api.route("/webhooks", webhooks);
+
+// Public auth routes (no auth required)
+api.route("/auth", auth);
 
 // Authenticated routes
 api.use("/monitors/*", authMiddleware);

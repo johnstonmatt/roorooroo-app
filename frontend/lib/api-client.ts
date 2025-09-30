@@ -42,9 +42,17 @@ export async function apiClient(
     ...headers,
   };
 
-  // Add authentication header if we have a session
+  // Always include the project's anon key so Supabase Functions gateway can route the request
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (anonKey) {
+    requestHeaders["apikey"] = anonKey;
+  }
+
+  // Authorization header: use user session token if available; otherwise fall back to anon key
   if (session?.access_token) {
     requestHeaders["Authorization"] = `Bearer ${session.access_token}`;
+  } else if (anonKey) {
+    requestHeaders["Authorization"] = `Bearer ${anonKey}`;
   }
 
   const requestOptions: RequestInit = {

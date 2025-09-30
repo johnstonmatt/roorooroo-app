@@ -68,10 +68,15 @@ DECLARE
   cron_secret text := NULL;
   headers jsonb;
 BEGIN
-  cron_secret := current_setting('app.settings.cron_secret', true);
+  cron_secret := vault.get('cron/secret');
+  
+  -- Fallback to setting if vault not available
+  IF cron_secret IS NULL OR cron_secret = '' THEN
+    cron_secret := current_setting('app.settings.cron_secret', true);
+  END IF;
 
   IF cron_secret IS NULL OR cron_secret = '' THEN
-    RAISE EXCEPTION 'Missing setting app.settings.cron_secret. Set it via: ALTER DATABASE postgres SET app.settings.cron_secret = ''<CRON_SECRET>'';';
+    RAISE EXCEPTION 'Missing cron secret. Set it via Vault at cron/secret or via: ALTER DATABASE postgres SET app.settings.cron_secret = ''<CRON_SECRET>'';';
   END IF;
 
   headers := jsonb_build_object(
