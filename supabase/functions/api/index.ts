@@ -96,6 +96,7 @@ api.route("/auth", auth);
 api.use("/monitors/*", authMiddleware);
 api.route("/monitors", monitors);
 
+api.use("/monitors/check", cronAuthMiddleware);
 api.use("/monitors/check/*", cronAuthMiddleware);
 api.route("/monitors/check", monitorCheck);
 

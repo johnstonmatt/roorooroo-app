@@ -196,17 +196,24 @@ monitors.post(
           });
       } else {
         // Create the cron job
-        const cronJobCreated = await createMonitorCronJob(cronConfig);
+        const result = await createMonitorCronJob(cronConfig);
 
-        if (!cronJobCreated) {
-          console.error("Failed to create cron job for monitor:", monitor.id);
+        if (!result.success) {
+          console.error(
+            "Failed to create cron job for monitor:",
+            monitor.id,
+            result.error,
+            result.details,
+          );
           // Log the error but don't fail the monitor creation
           await supabase
             .from("monitor_logs")
             .insert({
               monitor_id: monitor.id,
               status: "error",
-              error_message: "Failed to create cron job for automated checking",
+              error_message: `Failed to create cron job: ${
+                [result.error, result.details].filter(Boolean).join(" | ")
+              }`,
               checked_at: new Date().toISOString(),
             });
         } else {
@@ -217,7 +224,7 @@ monitors.post(
               monitor_id: monitor.id,
               status: "info",
               error_message:
-                `Monitor created with automated checking every ${body.check_interval} seconds`,
+                `Monitor created with automated checking every ${body.check_interval} seconds (job ${result.jobName})`,
               checked_at: new Date().toISOString(),
             });
         }

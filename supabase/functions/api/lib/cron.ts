@@ -166,15 +166,13 @@ export async function cronJobExists(monitorId: string): Promise<boolean> {
     const supabase = createServiceClient();
     const jobName = generateCronJobName(monitorId);
 
-    const { data, error } = await supabase
-      .from("cron_jobs")
-      .select("job_name")
-      .eq("job_name", jobName)
-      .maybeSingle();
+    // Use RPC that queries pg_cron (cron.job) instead of a non-existent table
+    const { data, error } = await supabase.rpc("check_cron_job_exists", {
+      job_name: jobName,
+    });
 
     if (error) return false;
-
-    return !!data;
+    return Boolean(data);
   } catch {
     return false;
   }
