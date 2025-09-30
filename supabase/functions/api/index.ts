@@ -6,8 +6,10 @@ import { corsMiddleware, webhookCorsMiddleware } from "./middleware/cors.ts";
 import {
   adminMiddleware,
   authMiddleware,
+  optionalAuthMiddleware,
   // optionalAuthMiddleware,
 } from "./middleware/auth.ts";
+import { cronAuthMiddleware } from "./middleware/cron.ts";
 import { errorHandler } from "./middleware/error.ts";
 
 // Import route handlers
@@ -94,7 +96,7 @@ api.route("/webhooks", webhooks);
 api.use("/monitors/*", authMiddleware);
 api.route("/monitors", monitors);
 
-api.use("/monitors/check/*", authMiddleware);
+api.use("/monitors/check/*", cronAuthMiddleware);
 api.route("/monitors/check", monitorCheck);
 
 api.use("/notifications/*", authMiddleware);
