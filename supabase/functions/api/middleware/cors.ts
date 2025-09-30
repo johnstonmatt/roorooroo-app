@@ -10,12 +10,14 @@ export const corsMiddleware = cors({
     const devURL = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
 
     if (prodURL) {
-      if (origin === prodURL) return origin;
+      if (origin.endsWith(prodURL)) return origin;
     }
 
-    if (origin === devURL) {
+    if (origin.endsWith(devURL)) {
       return origin;
     }
+
+    return null;
   },
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowHeaders: [
