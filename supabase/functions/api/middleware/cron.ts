@@ -17,35 +17,46 @@ export async function cronAuthMiddleware(
     return c.json({ error: "Method not allowed" }, 405);
   }
 
-  const cronSecretHeader = c.req.header("X-Cron-Secret") ||
-    c.req.header("x-cron-secret");
+  const cronSecretHeader =
+    (c.req.header("X-Cron-Secret") || c.req.header("x-cron-secret") || "")
+      .trim();
   const authHeader = c.req.header("Authorization");
   const apiKeyHeader = c.req.header("apikey") || c.req.header("x-api-key");
 
-  const cronSecret = Deno.env.get("OG_CRON_SECRET") ??
-    Deno.env.get("CRON_SECRET");
+  const cronSecret =
+    (Deno.env.get("OG_CRON_SECRET") ?? Deno.env.get("CRON_SECRET") ?? "")
+      .trim();
 
-  // Preferred path: X-Cron-Secret
-  if (cronSecret) {
-    if (cronSecretHeader !== cronSecret) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+  // Service role credentials (acceptable alternative auth)
+  const serviceRoleKey = Deno.env.get("OG_SUPABASE_SERVICE_ROLE_KEY") ??
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const isServiceBearer = !!authHeader?.startsWith("Bearer ") &&
+    serviceRoleKey && (authHeader.substring(7) === serviceRoleKey);
+  const isServiceApiKey = !!apiKeyHeader && serviceRoleKey &&
+    (apiKeyHeader === serviceRoleKey);
+
+  // Debug (safe): log presence/lengths, not values
+  try {
+    console.log("cronAuthMiddleware", {
+      hasCronHeader: Boolean(cronSecretHeader),
+      cronHeaderLen: cronSecretHeader.length || 0,
+      cronEnvLen: cronSecret.length || 0,
+      hasAuthBearer: Boolean(authHeader?.startsWith("Bearer ")),
+      hasApiKeyHeader: Boolean(apiKeyHeader),
+    });
+  } catch (_) {
+    // no-op
+  }
+
+  // Accept EITHER a matching cron secret OR valid service-role credentials
+  if (cronSecret && cronSecretHeader && cronSecretHeader === cronSecret) {
     const svc = createServiceClient();
     c.set("supabase", svc);
     await next();
     return;
   }
 
-  // Backward-compat: allow service role headers when no CRON_SECRET set
-  const serviceRoleKey = Deno.env.get("OG_SUPABASE_SERVICE_ROLE_KEY") ??
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  const isServiceBearer = !!authHeader?.startsWith("Bearer ") &&
-    serviceRoleKey && (authHeader.substring(7) === serviceRoleKey);
-  const isApiKey = !!apiKeyHeader && serviceRoleKey &&
-    (apiKeyHeader === serviceRoleKey);
-
-  if (serviceRoleKey && (isServiceBearer || isApiKey)) {
+  if (serviceRoleKey && (isServiceBearer || isServiceApiKey)) {
     const svc = createServiceClient();
     c.set("supabase", svc);
     await next();

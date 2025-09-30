@@ -92,13 +92,14 @@ api.route("/webhooks", webhooks);
 // Public auth routes (no auth required)
 api.route("/auth", auth);
 
-// Authenticated routes
-api.use("/monitors/*", authMiddleware);
-api.route("/monitors", monitors);
-
+// Cron-protected monitor check MUST be registered before generic /monitors auth
 api.use("/monitors/check", cronAuthMiddleware);
 api.use("/monitors/check/*", cronAuthMiddleware);
 api.route("/monitors/check", monitorCheck);
+
+// Authenticated routes (excluding /monitors/check)
+api.use("/monitors/*", authMiddleware);
+api.route("/monitors", monitors);
 
 api.use("/notifications/*", authMiddleware);
 api.route("/notifications", notifications);
