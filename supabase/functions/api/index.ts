@@ -3,12 +3,7 @@ import { Hono } from "jsr:@hono/hono@4.9.8";
 // Import middleware
 import { logger } from "jsr:@hono/hono@4.9.8/logger";
 import { corsMiddleware, webhookCorsMiddleware } from "./middleware/cors.ts";
-import {
-  adminMiddleware,
-  authMiddleware,
-  optionalAuthMiddleware,
-  // optionalAuthMiddleware,
-} from "./middleware/auth.ts";
+import { adminMiddleware, authMiddleware } from "./middleware/auth.ts";
 import { cronAuthMiddleware } from "./middleware/cron.ts";
 import { errorHandler } from "./middleware/error.ts";
 
@@ -30,13 +25,14 @@ api.use(logger());
 api.onError(errorHandler);
 
 // Apply CORS middleware globally (except for webhooks which have their own)
-api.use("*", async (c, next) => {
+api.use("*", (c, next) => {
   // Skip CORS for webhook endpoints as they use their own middleware
   if (c.req.url.includes("/webhooks/")) {
-    await next();
-  } else {
-    await corsMiddleware(c, next);
+    return next();
   }
+  // IMPORTANT: Return the result of the CORS middleware so it can
+  // short-circuit and respond to OPTIONS preflight requests (204).
+  return corsMiddleware(c, next);
 });
 
 // Health check endpoint (no auth required)

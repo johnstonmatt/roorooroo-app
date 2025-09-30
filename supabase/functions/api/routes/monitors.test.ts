@@ -1,5 +1,5 @@
 // Test for monitors API endpoint
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { assertEquals, assertExists } from "jsr:@std/assert@1.0.14";
 import { Hono } from "jsr:@hono/hono@4.9.8";
 import { monitors } from "./monitors.ts";
 
