@@ -9,6 +9,9 @@
 
 BEGIN;
 
+-- Ensure required extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Create profiles table for user management
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -192,5 +195,160 @@ CREATE INDEX IF NOT EXISTS idx_notifications_monitor_id ON public.notifications(
 -- SELECT count(*) FROM public.monitors;
 -- SELECT count(*) FROM public.monitor_logs;
 -- SELECT count(*) FROM public.notifications;
+
+
+-- Consolidated: Profile creation trigger and updated_at triggers
+-- Create function to handle new user profile creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, display_name)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data ->> 'display_name', split_part(NEW.email, '@', 1))
+  )
+  ON CONFLICT (id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger to automatically create profile on user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- Add updated_at triggers for profiles and monitors
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_monitors_updated_at ON public.monitors;
+CREATE TRIGGER update_monitors_updated_at
+  BEFORE UPDATE ON public.monitors
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Consolidated: Notifications enhancements (columns, indexes, view)
+ALTER TABLE public.notifications 
+ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+ALTER TABLE public.notifications 
+ADD COLUMN IF NOT EXISTS message_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_notifications_message_id ON public.notifications(message_id) WHERE message_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON public.notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_channel ON public.notifications(channel);
+
+ALTER TABLE public.notifications 
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+CREATE OR REPLACE VIEW public.notification_history AS
+SELECT 
+  id,
+  monitor_id,
+  user_id,
+  type,
+  channel,
+  message,
+  status,
+  error_message,
+  message_id,
+  COALESCE(created_at, sent_at) as created_at,
+  sent_at
+FROM public.notifications
+ORDER BY COALESCE(created_at, sent_at) DESC;
+
+GRANT SELECT ON public.notification_history TO authenticated;
+
+-- Consolidated: SMS usage table, RLS, indexes, triggers
+CREATE TABLE IF NOT EXISTS public.sms_usage (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- Usage counters
+  hourly_count INTEGER DEFAULT 0 NOT NULL,
+  daily_count INTEGER DEFAULT 0 NOT NULL,
+  monthly_count INTEGER DEFAULT 0 NOT NULL,
+  
+  -- Cost tracking
+  monthly_cost_usd DECIMAL(10,4) DEFAULT 0 NOT NULL,
+  
+  -- Reset timestamps
+  last_reset_hour TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  last_reset_day TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  last_reset_month TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  
+  -- Metadata
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  
+  -- Ensure one record per user
+  UNIQUE(user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sms_usage_user_id ON public.sms_usage(user_id);
+CREATE INDEX IF NOT EXISTS idx_sms_usage_monthly_cost ON public.sms_usage(monthly_cost_usd);
+CREATE INDEX IF NOT EXISTS idx_sms_usage_updated_at ON public.sms_usage(updated_at);
+
+ALTER TABLE public.sms_usage ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'Users can view own SMS usage'
+  ) THEN
+    CREATE POLICY "Users can view own SMS usage" ON public.sms_usage
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'System can manage SMS usage'
+  ) THEN
+    CREATE POLICY "System can manage SMS usage" ON public.sms_usage
+      FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.update_sms_usage_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_sms_usage_updated_at ON public.sms_usage;
+CREATE TRIGGER update_sms_usage_updated_at
+  BEFORE UPDATE ON public.sms_usage
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_sms_usage_updated_at();
+
+COMMENT ON TABLE public.sms_usage IS 'Tracks SMS usage per user for rate limiting and cost monitoring';
+COMMENT ON COLUMN public.sms_usage.hourly_count IS 'Number of SMS sent in current hour';
+COMMENT ON COLUMN public.sms_usage.daily_count IS 'Number of SMS sent in current day';
+COMMENT ON COLUMN public.sms_usage.monthly_count IS 'Number of SMS sent in current month';
+COMMENT ON COLUMN public.sms_usage.monthly_cost_usd IS 'Total SMS cost in USD for current month';
 
 COMMIT;

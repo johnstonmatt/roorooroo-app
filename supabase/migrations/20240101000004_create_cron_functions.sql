@@ -1,8 +1,11 @@
 -- =============================================================
--- Script: 20240101000004_create_cron_functions.sql
--- Purpose: Create database functions for managing monitor cron jobs
--- Safety: Idempotent (uses CREATE OR REPLACE)
--- Notes: Requires pg_cron and pg_net extensions to be enabled
+-- Script: 20240101000004_create_cron_functions.sql (consolidated)
+-- Purpose: Create/replace cron helpers and functions with Vault + apikey support
+-- Safety: Idempotent (uses CREATE OR REPLACE, IF NOT EXISTS)
+-- Notes:
+--   - Requires pg_cron, pg_net, and supabase_vault extensions
+--   - Scheduled jobs resolve headers and URL at runtime, so secret/URL changes
+--     do not require rescheduling
 -- =============================================================
 
 BEGIN;
@@ -10,6 +13,7 @@ BEGIN;
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE EXTENSION IF NOT EXISTS supabase_vault;
 
 -- Helper: Resolve API URL for monitor checks
 CREATE OR REPLACE FUNCTION _get_monitor_check_url()
@@ -35,7 +39,7 @@ BEGIN
 END;
 $$;
 
--- Helper: Build headers including Service Role
+-- Helper: Build headers including Service Role (optional alternative)
 CREATE OR REPLACE FUNCTION _get_cron_auth_headers()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -44,10 +48,23 @@ DECLARE
   svc_key text := NULL;
   headers jsonb;
 BEGIN
-  svc_key := current_setting('app.settings.service_role_key', true);
+  -- Prefer Vault for service role; fallback to DB setting if needed
+  BEGIN
+    svc_key := vault.get('supabase/service_role_key');
+    IF svc_key IS NULL OR svc_key = '' THEN
+      svc_key := vault.get('supabase/service_role');
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- Vault may not be available; ignore and fallback
+    NULL;
+  END;
 
   IF svc_key IS NULL OR svc_key = '' THEN
-    RAISE EXCEPTION 'Missing setting app.settings.service_role_key. Set it via: ALTER DATABASE postgres SET app.settings.service_role_key = ''<SERVICE_ROLE_KEY>'';';
+    svc_key := current_setting('app.settings.service_role_key', true);
+  END IF;
+
+  IF svc_key IS NULL OR svc_key = '' THEN
+    RAISE EXCEPTION 'Missing service role key. Set via Vault (supabase/service_role_key) or DB: ALTER DATABASE postgres SET app.settings.service_role_key = ''<SERVICE_ROLE_KEY>'';';
   END IF;
 
   headers := jsonb_build_object(
@@ -59,29 +76,48 @@ BEGIN
 END;
 $$;
 
--- Helper: Build headers for cron using X-Cron-Secret (no service role in request)
+-- Helper: Build headers for cron using X-Cron-Secret (function-level auth) + apikey (gateway)
 CREATE OR REPLACE FUNCTION _get_cron_headers()
 RETURNS jsonb
 LANGUAGE plpgsql
 AS $$
 DECLARE
   cron_secret text := NULL;
+  anon_key text := NULL;
   headers jsonb;
 BEGIN
-  cron_secret := vault.get('cron/secret');
-  
-  -- Fallback to setting if vault not available
+  -- Prefer Vault for cron secret
+  BEGIN
+    cron_secret := vault.get('cron/secret');
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  -- Fallback to DB setting
   IF cron_secret IS NULL OR cron_secret = '' THEN
     cron_secret := current_setting('app.settings.cron_secret', true);
   END IF;
 
+  -- Obtain anon key (safe to store; needed by gateway on custom/project domains)
+  BEGIN
+    anon_key := vault.get('supabase/anon_key');
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  IF anon_key IS NULL OR anon_key = '' THEN
+    anon_key := current_setting('app.settings.anon_key', true);
+  END IF;
+
   IF cron_secret IS NULL OR cron_secret = '' THEN
-    RAISE EXCEPTION 'Missing cron secret. Set it via Vault at cron/secret or via: ALTER DATABASE postgres SET app.settings.cron_secret = ''<CRON_SECRET>'';';
+    RAISE EXCEPTION 'Missing cron secret. Set via Vault (cron/secret) or DB: ALTER DATABASE postgres SET app.settings.cron_secret = ''<CRON_SECRET>'';';
+  END IF;
+  IF anon_key IS NULL OR anon_key = '' THEN
+    RAISE EXCEPTION 'Missing anon key. Set via Vault (supabase/anon_key) or DB: ALTER DATABASE postgres SET app.settings.anon_key = ''<ANON_KEY>'';';
   END IF;
 
   headers := jsonb_build_object(
     'Content-Type', 'application/json',
-    'X-Cron-Secret', cron_secret
+    'X-Cron-Secret', cron_secret,
+    'apikey', anon_key
   );
   RETURN headers;
 END;
@@ -96,24 +132,19 @@ CREATE OR REPLACE FUNCTION create_monitor_cron_job(
 ) RETURNS BOOLEAN AS $$
 DECLARE
   job_id INTEGER;
-  api_url TEXT;
-  headers jsonb;
-  body jsonb;
 BEGIN
-  api_url := _get_monitor_check_url();
-  headers := _get_cron_headers();
-
-  body := jsonb_build_object(
-    'monitor_id', monitor_id::text,
-    'user_id', user_id::text
-  );
-
+  -- Schedule with runtime resolution of URL and headers
   SELECT cron.schedule(
     job_name,
     cron_schedule,
     format(
-      'SELECT net.http_post(url := %L, headers := %L::jsonb, body := %L::jsonb)',
-      api_url, headers::text, body::text
+      $$SELECT net.http_post(
+           url := _get_monitor_check_url(),
+           headers := _get_cron_headers(),
+           body := jsonb_build_object(''monitor_id'', %L, ''user_id'', %L)
+         )$$,
+      monitor_id::text,
+      user_id::text
     )
   ) INTO job_id;
 
@@ -137,25 +168,24 @@ CREATE OR REPLACE FUNCTION update_monitor_cron_job(
 ) RETURNS BOOLEAN AS $$
 DECLARE
   job_id INTEGER;
-  api_url TEXT;
-  headers jsonb;
-  body jsonb;
+  v_user_id UUID;
 BEGIN
+  -- Lookup the monitor owner to include user_id in body
+  SELECT m.user_id INTO v_user_id FROM public.monitors m WHERE m.id = monitor_id;
+
   PERFORM cron.unschedule(job_name);
-
-  api_url := _get_monitor_check_url();
-  headers := _get_cron_headers();
-
-  body := jsonb_build_object(
-    'monitor_id', monitor_id::text
-  );
 
   SELECT cron.schedule(
     job_name,
     cron_schedule,
     format(
-      'SELECT net.http_post(url := %L, headers := %L::jsonb, body := %L::jsonb)',
-      api_url, headers::text, body::text
+      $$SELECT net.http_post(
+           url := _get_monitor_check_url(),
+           headers := _get_cron_headers(),
+           body := jsonb_build_object(''monitor_id'', %L, ''user_id'', %L)
+         )$$,
+      monitor_id::text,
+      COALESCE(v_user_id::text, '')
     )
   ) INTO job_id;
 
