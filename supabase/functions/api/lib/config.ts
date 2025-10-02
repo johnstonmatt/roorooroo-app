@@ -23,12 +23,6 @@ interface Config {
     environment: "development" | "production";
     logLevel: "debug" | "info" | "warn" | "error";
   };
-  smsLimits: {
-    maxSMSPerUserPerHour: number;
-    maxSMSPerUserPerDay: number;
-    maxMonthlyCostUSD: number;
-    costPerSMSUSD: number;
-  };
 }
 
 function getRequiredEnv(key: string): string {
@@ -41,13 +35,6 @@ function getRequiredEnv(key: string): string {
 
 function getOptionalEnv(key: string, defaultValue: string): string {
   return Deno.env.get(key) || defaultValue;
-}
-
-function getNumericEnv(key: string, defaultValue: number): number {
-  const value = Deno.env.get(key);
-  if (!value) return defaultValue;
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? defaultValue : parsed;
 }
 
 export const config: Config = {
@@ -76,12 +63,6 @@ export const config: Config = {
       | "info"
       | "warn"
       | "error",
-  },
-  smsLimits: {
-    maxSMSPerUserPerHour: getNumericEnv("SMS_MAX_PER_USER_PER_HOUR", 10),
-    maxSMSPerUserPerDay: getNumericEnv("SMS_MAX_PER_USER_PER_DAY", 50),
-    maxMonthlyCostUSD: getNumericEnv("SMS_MAX_MONTHLY_COST_USD", 25.0),
-    costPerSMSUSD: getNumericEnv("SMS_COST_PER_SMS_USD", 0.0075),
   },
 };
 

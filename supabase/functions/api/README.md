@@ -14,15 +14,12 @@ api/
 │   ├── cors.ts                 # CORS configuration
 │   └── error-handler.ts        # Global error handling
 ├── routes/                     # API route handlers
-│   ├── admin.ts                # Admin SMS cost monitoring
 │   ├── monitors.ts             # Monitor CRUD operations
 │   ├── monitor-check.ts        # Monitor checking logic
 │   └── webhooks.ts             # SMS status webhooks
 ├── services/                   # Business logic services
 │   ├── sms-service.ts          # SMS sending service
-│   ├── notification-service.ts # Notification handling
-│   ├── sms-cost-monitor.ts     # Cost monitoring service
-│   └── sms-rate-limiter.ts     # Rate limiting service
+│   └── notification-service.ts # Notification handling
 └── utils/                      # Utility functions
     ├── config.ts               # Configuration management
     ├── supabase.ts             # Supabase client setup
@@ -58,11 +55,6 @@ deno task start
 - `GET /health` - Health check endpoint with system status
 - `GET /status` - Detailed status endpoint with available endpoints
 
-### Admin Endpoints (Authentication + Admin Role Required)
-
-- `GET /api/admin/sms-costs` - Get SMS cost data
-- `POST /api/admin/sms-costs` - Update SMS cost settings
-
 ### Monitor Endpoints (Authentication Required)
 
 - `GET /api/monitors` - Get user monitors
@@ -81,14 +73,12 @@ The main application applies middleware in the following order:
 2. **CORS Middleware** - Handles cross-origin requests (except webhooks)
 3. **Authentication Middleware** - Validates Supabase JWT tokens (where
    required)
-4. **Admin Middleware** - Validates admin role (for admin endpoints)
-5. **Webhook CORS** - Special CORS handling for webhook endpoints
+4. **Webhook CORS** - Special CORS handling for webhook endpoints
 
 ## Route Organization
 
 Routes are organized using Hono's routing system:
 
-- **Admin routes** (`/api/admin/*`) - Require authentication and admin role
 - **Monitor routes** (`/api/monitors`) - Require user authentication
 - **Monitor check routes** (`/api/monitors/check`) - Require user authentication
 - **Webhook routes** (`/api/webhooks/*`) - Use webhook-specific CORS, no auth

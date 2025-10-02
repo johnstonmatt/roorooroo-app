@@ -95,7 +95,7 @@ export function validateRequest(
       errors.push({ field, message: `${field} format is invalid` });
     }
 
-    if (rules.enum && !rules.enum.includes(value)) {
+    if (rules.enum && !rules.enum.includes(value as string)) {
       errors.push({
         field,
         message: `${field} must be one of: ${rules.enum.join(", ")}`,

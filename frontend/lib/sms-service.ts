@@ -1,6 +1,5 @@
 import { Twilio } from "twilio";
 import { getConfig } from "./config";
-import { SMSRateLimiter } from "./sms-rate-limiter";
 
 export interface SMSMessage {
   to: string;
@@ -13,7 +12,6 @@ export interface SMSResult {
   success: boolean;
   messageId?: string;
   error?: string;
-  rateLimited?: boolean;
 }
 
 export interface SMSDeliveryStatus {
@@ -26,7 +24,6 @@ export interface SMSDeliveryStatus {
 export class SMSService {
   private client: Twilio;
   private config = getConfig();
-  private rateLimiter = new SMSRateLimiter();
   private readonly RETRY_ATTEMPTS = 3;
   private readonly RETRY_DELAYS = [1000, 4000, 16000]; // exponential backoff in ms
 
@@ -43,7 +40,6 @@ export class SMSService {
         console.log("SMS Service initialized with configuration:", {
           phoneNumber: this.config.twilio.phoneNumber,
           hasWebhook: !!this.config.twilio.webhookUrl,
-          limits: this.config.smsLimits,
         });
       }
     } catch (error) {
@@ -58,39 +54,9 @@ export class SMSService {
   async sendSMS(message: SMSMessage): Promise<SMSResult> {
     try {
       // Check comprehensive rate limits and cost controls
-      const rateLimitResult = await this.rateLimiter.checkRateLimit(
-        message.userId,
-      );
-
-      if (!rateLimitResult.allowed) {
-        console.warn(
-          `SMS rate limit exceeded for user ${message.userId}:`,
-          rateLimitResult.reason,
-        );
-        return {
-          success: false,
-          error: rateLimitResult.reason || "Rate limit exceeded",
-          rateLimited: true,
-        };
-      }
-
-      // Log rate limit status in development
-      if (this.config.isDevelopment) {
-        console.log("SMS rate limit check passed:", {
-          userId: message.userId,
-          remainingHourly: rateLimitResult.remainingHourly,
-          remainingDaily: rateLimitResult.remainingDaily,
-          estimatedMonthlyCost: rateLimitResult.estimatedMonthlyCost,
-        });
-      }
 
       // Attempt to send with retry logic
       const result = await this.sendWithRetry(message);
-
-      // Record usage if successful
-      if (result.success) {
-        await this.rateLimiter.recordSMSUsage(message.userId);
-      }
 
       return result;
     } catch (error) {
@@ -235,40 +201,6 @@ export class SMSService {
 
     return false;
   }
-
-  /**
-   * Get comprehensive rate limit status for a user
-   */
-  async getRateLimitStatus(userId: string): Promise<
-    {
-      hourlyRemaining: number;
-      dailyRemaining: number;
-      monthlyCostUSD: number;
-      maxMonthlyCostUSD: number;
-    } | null
-  > {
-    try {
-      const usage = await this.rateLimiter.getUserUsageStats(userId);
-      if (!usage) return null;
-
-      return {
-        hourlyRemaining: Math.max(
-          0,
-          this.config.smsLimits.maxSMSPerUserPerHour - usage.hourlyCount,
-        ),
-        dailyRemaining: Math.max(
-          0,
-          this.config.smsLimits.maxSMSPerUserPerDay - usage.dailyCount,
-        ),
-        monthlyCostUSD: usage.monthlyCostUSD,
-        maxMonthlyCostUSD: this.config.smsLimits.maxMonthlyCostUSD,
-      };
-    } catch (error) {
-      console.error("Failed to get rate limit status:", error);
-      return null;
-    }
-  }
-
   /**
    * Check if SMS service is properly configured
    */
@@ -286,12 +218,10 @@ export class SMSService {
   getHealthStatus(): {
     configured: boolean;
     environment: string;
-    limits: typeof this.config.smsLimits;
   } {
     return {
       configured: this.isConfigured(),
       environment: process.env.NODE_ENV || "unknown",
-      limits: this.config.smsLimits,
     };
   }
 }

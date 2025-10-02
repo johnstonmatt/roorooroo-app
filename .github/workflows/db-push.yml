@@ -36,7 +36,6 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/001_create_tables.sql | cat
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/002_create_profile_trigger.sql | cat
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/003_update_notifications_table.sql | cat
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/004_create_sms_usage_table.sql | cat
 
       - name: Tag summary
         run: echo "Applied DB scripts for tag $GITHUB_REF_NAME"

@@ -1,5 +1,6 @@
 // Auth routes (no auth required)
 import { Hono } from "jsr:@hono/hono@4.9.8";
+import type { ContentfulStatusCode } from "jsr:@hono/hono@4.9.8/utils/http-status";
 import type { AppVariables } from "../types.ts";
 import { createSupabaseClient } from "../lib/supabase.ts";
 
@@ -25,7 +26,8 @@ auth.post("/login", async (c) => {
 
     if (error || !data?.session) {
       // Surface Supabase Auth error details when available
-      const status = (error as unknown as { status?: number })?.status ?? 400;
+      const status: ContentfulStatusCode =
+        (error as unknown as { status?: ContentfulStatusCode })?.status ?? 400;
       const code = (error as unknown as { code?: string })?.code;
       const message = (error as unknown as { message?: string })?.message ||
         "Invalid email or password";

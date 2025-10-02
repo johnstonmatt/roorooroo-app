@@ -1,5 +1,4 @@
 import { config, logger } from "./config.ts";
-import { SMSRateLimiter } from "./sms-rate-limiter.ts";
 
 export interface SMSMessage {
   to: string;
@@ -12,7 +11,6 @@ export interface SMSResult {
   success: boolean;
   messageId?: string;
   error?: string;
-  rateLimited?: boolean;
 }
 
 export interface SMSDeliveryStatus {
@@ -23,7 +21,6 @@ export interface SMSDeliveryStatus {
 }
 
 export class SMSService {
-  private rateLimiter = new SMSRateLimiter();
   private readonly RETRY_ATTEMPTS = 3;
   private readonly RETRY_DELAYS = [1000, 4000, 16000];
 
@@ -33,36 +30,7 @@ export class SMSService {
 
   async sendSMS(message: SMSMessage): Promise<SMSResult> {
     try {
-      const rateLimitResult = await this.rateLimiter.checkRateLimit(
-        message.userId,
-      );
-
-      if (!rateLimitResult.allowed) {
-        logger.warn(
-          `SMS rate limit exceeded for user ${message.userId}:`,
-          rateLimitResult.reason,
-        );
-        return {
-          success: false,
-          error: rateLimitResult.reason || "Rate limit exceeded",
-          rateLimited: true,
-        };
-      }
-
-      if (config.app.environment === "development") {
-        logger.info("SMS rate limit check passed:", {
-          userId: message.userId,
-          remainingHourly: rateLimitResult.remainingHourly,
-          remainingDaily: rateLimitResult.remainingDaily,
-          estimatedMonthlyCost: rateLimitResult.estimatedMonthlyCost,
-        });
-      }
-
       const result = await this.sendWithRetry(message);
-
-      if (result.success) {
-        await this.rateLimiter.recordSMSUsage(message.userId);
-      }
 
       return result;
     } catch (error) {
@@ -247,36 +215,6 @@ export class SMSService {
     return false;
   }
 
-  async getRateLimitStatus(userId: string): Promise<
-    {
-      hourlyRemaining: number;
-      dailyRemaining: number;
-      monthlyCostUSD: number;
-      maxMonthlyCostUSD: number;
-    } | null
-  > {
-    try {
-      const usage = await this.rateLimiter.getUserUsageStats(userId);
-      if (!usage) return null;
-
-      return {
-        hourlyRemaining: Math.max(
-          0,
-          config.smsLimits.maxSMSPerUserPerHour - usage.hourlyCount,
-        ),
-        dailyRemaining: Math.max(
-          0,
-          config.smsLimits.maxSMSPerUserPerDay - usage.dailyCount,
-        ),
-        monthlyCostUSD: usage.monthlyCostUSD,
-        maxMonthlyCostUSD: config.smsLimits.maxMonthlyCostUSD,
-      };
-    } catch (error) {
-      logger.error("Failed to get rate limit status:", error);
-      return null;
-    }
-  }
-
   isConfigured(): boolean {
     return !!(
       config.twilio.accountSid &&
@@ -288,12 +226,10 @@ export class SMSService {
   getHealthStatus(): {
     configured: boolean;
     environment: string;
-    limits: typeof config.smsLimits;
   } {
     return {
       configured: this.isConfigured(),
       environment: config.app.environment,
-      limits: config.smsLimits,
     };
   }
 }

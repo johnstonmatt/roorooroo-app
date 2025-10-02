@@ -10,16 +10,8 @@ interface TwilioConfig {
   webhookUrl?: string;
 }
 
-interface SMSLimits {
-  maxSMSPerUserPerHour: number;
-  maxSMSPerUserPerDay: number;
-  maxMonthlyCostUSD: number;
-  costPerSMSUSD: number;
-}
-
 interface AppConfig {
   twilio: TwilioConfig;
-  smsLimits: SMSLimits;
   apiBaseUrl: string;
   isDevelopment: boolean;
   isProduction: boolean;
@@ -78,13 +70,6 @@ export function getConfig(): AppConfig {
       phoneNumber: process.env.TWILIO_PHONE_NUMBER || "",
       webhookUrl: process.env.TWILIO_WEBHOOK_URL,
     },
-    smsLimits: {
-      // Conservative limits to prevent abuse and control costs
-      maxSMSPerUserPerHour: parseInt(process.env.SMS_LIMIT_PER_HOUR || "50"),
-      maxSMSPerUserPerDay: parseInt(process.env.SMS_LIMIT_PER_DAY || "200"),
-      maxMonthlyCostUSD: parseInt(process.env.SMS_MAX_MONTHLY_COST || "100"),
-      costPerSMSUSD: parseFloat(process.env.SMS_COST_PER_MESSAGE || "0.0075"), // Twilio US rate
-    },
     apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ||
       "http://localhost:54321/functions/v1/api",
     isDevelopment,
@@ -103,7 +88,6 @@ export function logConfigStatus(): void {
       phoneNumberConfigured: !!config.twilio.phoneNumber,
       webhookConfigured: !!config.twilio.webhookUrl,
       environment: process.env.NODE_ENV,
-      limits: config.smsLimits,
     });
   } catch (error) {
     console.error(

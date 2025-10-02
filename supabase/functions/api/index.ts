@@ -3,12 +3,10 @@ import { Hono } from "jsr:@hono/hono@4.9.8";
 // Import middleware
 import { logger } from "jsr:@hono/hono@4.9.8/logger";
 import { corsMiddleware, webhookCorsMiddleware } from "./middleware/cors.ts";
-import { adminMiddleware, authMiddleware } from "./middleware/auth.ts";
+import { authMiddleware } from "./middleware/auth.ts";
 import { cronAuthMiddleware } from "./middleware/cron.ts";
 import { errorHandler } from "./middleware/error.ts";
 
-// Import route handlers
-import { admin } from "./routes/admin.ts";
 import { monitors } from "./routes/monitors.ts";
 import { monitorCheck } from "./routes/monitor-check.ts";
 import { notifications } from "./routes/notifications.ts";
@@ -64,7 +62,6 @@ api.get(
       endpoints: {
         health: "/health",
         status: "/status",
-        admin: "/admin/*",
         monitors: "/monitors",
         monitorCheck: "/monitors/check",
         notifications: "/notifications",
@@ -103,10 +100,6 @@ api.route("/monitors", monitors);
 
 api.use("/notifications/*", authMiddleware);
 api.route("/notifications", notifications);
-
-// Admin routes - require authentication and admin role
-api.use("/admin/*", authMiddleware, adminMiddleware);
-api.route("/admin", admin);
 
 const availableEndpoints = api.routes
   .filter((route) => route.method !== "ALL")
