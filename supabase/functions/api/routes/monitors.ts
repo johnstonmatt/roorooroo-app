@@ -2,7 +2,11 @@
 import { Hono } from "jsr:@hono/hono@4.9.8";
 import type { AppVariables } from "../types.ts";
 import { validateAndThrow } from "../lib/validation.ts";
-import { createMonitorCronJob, validateCronJobConfig } from "../lib/cron.ts";
+import {
+  createMonitorCronJob,
+  deleteMonitorCronJob,
+  validateCronJobConfig,
+} from "../lib/cron.ts";
 
 const monitors = new Hono<{ Variables: AppVariables }>();
 
@@ -452,10 +456,25 @@ monitors.delete(
         }, 404);
       }
 
+      // Best-effort: unschedule any associated cron job for this monitor
+      try {
+        const cronResult = await deleteMonitorCronJob(monitorId);
+        if (!cronResult.success) {
+          console.error(
+            "Failed to delete cron job for monitor:",
+            monitorId,
+            cronResult.error,
+            cronResult.details,
+          );
+        }
+      } catch (err) {
+        console.error("Unexpected error unscheduling cron job:", err);
+      }
+
       // Return success response
       return c.json({
         success: true,
-        message: "Monitor deleted successfully",
+        message: "Monitor and associated cron job deleted (if existed)",
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

@@ -161,6 +161,35 @@ export async function createMonitorCronJob(
   }
 }
 
+export async function deleteMonitorCronJob(
+  monitorId: string,
+): Promise<CronJobResult> {
+  try {
+    if (!monitorId) return { success: false, error: "Invalid monitorId" };
+    const supabase = createServiceClient();
+    const jobName = generateCronJobName(monitorId);
+
+    const { error } = await supabase.rpc("delete_monitor_cron_job", {
+      job_name: jobName,
+    });
+
+    if (error) {
+      console.error("Failed to delete cron job:", error);
+      return {
+        success: false,
+        jobName,
+        error: "Database error",
+        details: error.message,
+      };
+    }
+
+    console.log(`Deleted cron job ${jobName}`);
+    return { success: true, jobName };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 export async function cronJobExists(monitorId: string): Promise<boolean> {
   try {
     const supabase = createServiceClient();
