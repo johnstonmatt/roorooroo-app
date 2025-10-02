@@ -138,11 +138,11 @@ BEGIN
     job_name,
     cron_schedule,
     format(
-      $$SELECT net.http_post(
+      $cmd$SELECT net.http_post(
            url := _get_monitor_check_url(),
            headers := _get_cron_headers(),
            body := jsonb_build_object(''monitor_id'', %L, ''user_id'', %L)
-         )$$,
+         )$cmd$,
       monitor_id::text,
       user_id::text
     )
@@ -179,11 +179,11 @@ BEGIN
     job_name,
     cron_schedule,
     format(
-      $$SELECT net.http_post(
+      $cmd$SELECT net.http_post(
            url := _get_monitor_check_url(),
            headers := _get_cron_headers(),
            body := jsonb_build_object(''monitor_id'', %L, ''user_id'', %L)
-         )$$,
+         )$cmd$,
       monitor_id::text,
       COALESCE(v_user_id::text, '')
     )

@@ -2,6 +2,7 @@
   "tasks": {
     "build": "cd frontend && pnpm build",
     "deploy": "npx supabase functions deploy",
+    "db-push": "npx supabase db push",
     "dev:frontend": {
       "command": "cd frontend && pnpm dev"
     },

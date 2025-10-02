@@ -281,74 +281,74 @@ ORDER BY COALESCE(created_at, sent_at) DESC;
 
 GRANT SELECT ON public.notification_history TO authenticated;
 
--- Consolidated: SMS usage table, RLS, indexes, triggers
-CREATE TABLE IF NOT EXISTS public.sms_usage (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+-- -- Consolidated: SMS usage table, RLS, indexes, triggers
+-- CREATE TABLE IF NOT EXISTS public.sms_usage (
+--   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   
-  -- Usage counters
-  hourly_count INTEGER DEFAULT 0 NOT NULL,
-  daily_count INTEGER DEFAULT 0 NOT NULL,
-  monthly_count INTEGER DEFAULT 0 NOT NULL,
+--   -- Usage counters
+--   hourly_count INTEGER DEFAULT 0 NOT NULL,
+--   daily_count INTEGER DEFAULT 0 NOT NULL,
+--   monthly_count INTEGER DEFAULT 0 NOT NULL,
   
-  -- Cost tracking
-  monthly_cost_usd DECIMAL(10,4) DEFAULT 0 NOT NULL,
+--   -- Cost tracking
+--   monthly_cost_usd DECIMAL(10,4) DEFAULT 0 NOT NULL,
   
-  -- Reset timestamps
-  last_reset_hour TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  last_reset_day TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  last_reset_month TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+--   -- Reset timestamps
+--   last_reset_hour TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+--   last_reset_day TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+--   last_reset_month TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   
-  -- Metadata
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+--   -- Metadata
+--   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+--   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   
-  -- Ensure one record per user
-  UNIQUE(user_id)
-);
+--   -- Ensure one record per user
+--   UNIQUE(user_id)
+-- );
 
-CREATE INDEX IF NOT EXISTS idx_sms_usage_user_id ON public.sms_usage(user_id);
-CREATE INDEX IF NOT EXISTS idx_sms_usage_monthly_cost ON public.sms_usage(monthly_cost_usd);
-CREATE INDEX IF NOT EXISTS idx_sms_usage_updated_at ON public.sms_usage(updated_at);
+-- CREATE INDEX IF NOT EXISTS idx_sms_usage_user_id ON public.sms_usage(user_id);
+-- CREATE INDEX IF NOT EXISTS idx_sms_usage_monthly_cost ON public.sms_usage(monthly_cost_usd);
+-- CREATE INDEX IF NOT EXISTS idx_sms_usage_updated_at ON public.sms_usage(updated_at);
 
-ALTER TABLE public.sms_usage ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.sms_usage ENABLE ROW LEVEL SECURITY;
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'Users can view own SMS usage'
-  ) THEN
-    CREATE POLICY "Users can view own SMS usage" ON public.sms_usage
-      FOR SELECT USING (auth.uid() = user_id);
-  END IF;
-END $$;
+-- DO $$ BEGIN
+--   IF NOT EXISTS (
+--     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'Users can view own SMS usage'
+--   ) THEN
+--     CREATE POLICY "Users can view own SMS usage" ON public.sms_usage
+--       FOR SELECT USING (auth.uid() = user_id);
+--   END IF;
+-- END $$;
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'System can manage SMS usage'
-  ) THEN
-    CREATE POLICY "System can manage SMS usage" ON public.sms_usage
-      FOR ALL TO service_role USING (true) WITH CHECK (true);
-  END IF;
-END $$;
+-- DO $$ BEGIN
+--   IF NOT EXISTS (
+--     SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sms_usage' AND policyname = 'System can manage SMS usage'
+--   ) THEN
+--     CREATE POLICY "System can manage SMS usage" ON public.sms_usage
+--       FOR ALL TO service_role USING (true) WITH CHECK (true);
+--   END IF;
+-- END $$;
 
-CREATE OR REPLACE FUNCTION public.update_sms_usage_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION public.update_sms_usage_updated_at()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   NEW.updated_at = NOW();
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_sms_usage_updated_at ON public.sms_usage;
-CREATE TRIGGER update_sms_usage_updated_at
-  BEFORE UPDATE ON public.sms_usage
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_sms_usage_updated_at();
+-- DROP TRIGGER IF EXISTS update_sms_usage_updated_at ON public.sms_usage;
+-- CREATE TRIGGER update_sms_usage_updated_at
+--   BEFORE UPDATE ON public.sms_usage
+--   FOR EACH ROW
+--   EXECUTE FUNCTION public.update_sms_usage_updated_at();
 
-COMMENT ON TABLE public.sms_usage IS 'Tracks SMS usage per user for rate limiting and cost monitoring';
-COMMENT ON COLUMN public.sms_usage.hourly_count IS 'Number of SMS sent in current hour';
-COMMENT ON COLUMN public.sms_usage.daily_count IS 'Number of SMS sent in current day';
-COMMENT ON COLUMN public.sms_usage.monthly_count IS 'Number of SMS sent in current month';
-COMMENT ON COLUMN public.sms_usage.monthly_cost_usd IS 'Total SMS cost in USD for current month';
+-- COMMENT ON TABLE public.sms_usage IS 'Tracks SMS usage per user for rate limiting and cost monitoring';
+-- COMMENT ON COLUMN public.sms_usage.hourly_count IS 'Number of SMS sent in current hour';
+-- COMMENT ON COLUMN public.sms_usage.daily_count IS 'Number of SMS sent in current day';
+-- COMMENT ON COLUMN public.sms_usage.monthly_count IS 'Number of SMS sent in current month';
+-- COMMENT ON COLUMN public.sms_usage.monthly_cost_usd IS 'Total SMS cost in USD for current month';
 
-COMMIT;
+-- COMMIT;
