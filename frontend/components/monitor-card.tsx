@@ -10,12 +10,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  BugPlay,
   Clock,
   ExternalLink,
   Globe,
   Pause,
   Play,
-  TestTube,
   Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -194,7 +194,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
               className="text-blue-600 hover:text-blue-800"
               title="Test now"
             >
-              <TestTube className="h-4 w-4" />
+              <BugPlay className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"

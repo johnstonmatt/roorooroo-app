@@ -138,11 +138,11 @@ BEGIN
     job_name,
     cron_schedule,
     format(
-      $cmd$SELECT net.http_post(
-           url := _get_monitor_check_url(),
-           headers := _get_cron_headers(),
-           body := jsonb_build_object(''monitor_id'', %L, ''user_id'', %L)
-         )$cmd$,
+      $cron$SELECT net.http_post(
+           url => _get_monitor_check_url(),
+           headers => _get_cron_headers(),
+           body => jsonb_build_object('monitor_id', %L, 'user_id', %L)
+         )$cron$,
       monitor_id::text,
       user_id::text
     )
@@ -179,11 +179,11 @@ BEGIN
     job_name,
     cron_schedule,
     format(
-      $cmd$SELECT net.http_post(
-           url := _get_monitor_check_url(),
-           headers := _get_cron_headers(),
-           body := jsonb_build_object(''monitor_id'', %L, ''user_id'', %L)
-         )$cmd$,
+      $cron$SELECT net.http_post(
+           url => _get_monitor_check_url(),
+           headers => _get_cron_headers(),
+           body => jsonb_build_object('monitor_id', %L, 'user_id', %L)
+         )$cron$,
       monitor_id::text,
       COALESCE(v_user_id::text, '')
     )
@@ -257,14 +257,19 @@ DECLARE
   job_info JSON;
 BEGIN
   SELECT json_build_object(
-    'schedule', schedule,
-    'active', active,
-    'last_run', last_run,
-    'next_run', next_run
+    'schedule', j.schedule,
+    'active', j.active,
+    'last_run', d.last_run,
+    'next_run', NULL::timestamptz
   )
   INTO job_info
-  FROM cron.job
-  WHERE jobname = job_name;
+  FROM cron.job j
+  LEFT JOIN (
+    SELECT jobid, max(end_time) AS last_run
+    FROM cron.job_run_details
+    GROUP BY jobid
+  ) d ON d.jobid = j.jobid
+  WHERE j.jobname = job_name;
 
   RETURN job_info;
 END;
