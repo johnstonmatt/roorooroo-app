@@ -92,6 +92,7 @@ api.route("/auth", auth);
 // Cron-protected monitor check MUST be registered before generic /monitors auth
 api.use("/monitors/check", cronAuthMiddleware);
 api.use("/monitors/check/*", cronAuthMiddleware);
+
 api.route("/monitors/check", monitorCheck);
 
 // Authenticated routes (excluding /monitors/check)
