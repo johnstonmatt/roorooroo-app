@@ -2,8 +2,6 @@ name: Deploy to Supabase Functions
 on:
   push:
     branches: main
-  pull_request:
-    branches: main
 
 jobs:
   deploy:
@@ -30,7 +28,5 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-
-      - run: supabase link --project-ref $PROJECT_ID
-
-      - run: supabase functions deploy
+      # this is broken
+      - run: supabase functions deploy --project-ref $PROJECT_ID
