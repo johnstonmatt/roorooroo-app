@@ -31,8 +31,16 @@ export default function SignupPage() {
     setIsLoading(true);
     setError(null);
 
+    const allowedDomain = "@supabase.io";
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!email.toLowerCase().endsWith(allowedDomain)) {
+      setError("Only @supabase.io email addresses are allowed.");
       setIsLoading(false);
       return;
     }
@@ -101,6 +109,8 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="border-orange-200 focus:border-orange-400"
+                    pattern="^[^\s@]+@supabase\.io$"
+                    title="Email must be a @supabase.io address"
                   />
                 </div>
                 <div className="grid gap-2">

@@ -63,7 +63,16 @@ auth.post("/signup", async (c) => {
     // Validate request
     validateAndThrow(
       {
-        email: { required: true, type: "email" },
+        email: {
+          required: true,
+          type: "email",
+          custom: (value: unknown) => {
+            if (typeof value !== "string") return "Email is invalid";
+            return value.toLowerCase().endsWith("@supabase.io")
+              ? true
+              : "Email must be a @supabase.io address";
+          },
+        },
         password: { required: true, type: "string", minLength: 6 },
         displayName: {
           required: false,
@@ -79,7 +88,7 @@ auth.post("/signup", async (c) => {
 
     const emailRedirectTo = `${config.frontend.url}/dashboard`;
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
