@@ -111,7 +111,6 @@ export class NotificationService {
     payload: NotificationPayload,
     channel: NotificationChannel,
   ): Promise<NotificationResult> {
-    await Promise.resolve();
     const message = this.formatEmailMessage(payload);
 
     console.log("Email notification:", {
@@ -122,19 +121,25 @@ export class NotificationService {
 
     const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
-    resend.emails.send({
+    const response = await resend.emails.send({
       from: "notifications@roorooroo.com",
       to: channel.address,
       subject: this.getEmailSubject(payload),
       html: this.formatEmailMessage(payload),
     });
 
+    if (response?.error) {
+      return {
+        success: false,
+        channel,
+        error: response.error.message,
+      };
+    }
+
     return {
       success: true,
       channel,
-      messageId: `email_${Date.now()}_${
-        Math.random().toString(36).slice(2, 9)
-      }`,
+      messageId: response.data.id,
     };
   }
 

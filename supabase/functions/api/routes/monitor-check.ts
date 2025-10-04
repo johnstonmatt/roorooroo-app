@@ -123,7 +123,11 @@ monitorCheck.post(
         const notificationService = new NotificationService();
 
         let shouldNotify = false;
-        let notificationType: "pattern_found" | "pattern_lost" | "error" | null = null;
+        let notificationType:
+          | "pattern_found"
+          | "pattern_lost"
+          | "error"
+          | null = null;
 
         const prev = (monitor.last_status || "pending") as
           | "pending"
