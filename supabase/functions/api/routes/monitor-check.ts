@@ -158,6 +158,7 @@ monitorCheck.post(
 
         if (shouldNotify && notificationType) {
           try {
+            console.log(`Sending ${notificationType} notification...`);
             await notificationService.sendNotifications(
               {
                 monitor: monitor as Monitor,
@@ -173,6 +174,9 @@ monitorCheck.post(
           }
         } else {
           // Skip notifications for non-actionable transitions (e.g., initial not_found)
+          console.log(
+            `Skipping notifications for transition from ${prev} to ${next}`,
+          );
         }
       }
 
