@@ -211,9 +211,9 @@
   BEGIN
     -- Prefer Vault for service role; fallback to DB setting if needed
     BEGIN
-      svc_key := vault.get('supabase/service_role_key');
+      svc_key := public.vault_get('supabase/service_role_key');
       IF svc_key IS NULL OR svc_key = '' THEN
-        svc_key := vault.get('supabase/service_role');
+        svc_key := public.vault_get('supabase/service_role');
       END IF;
     EXCEPTION WHEN OTHERS THEN
       -- Vault may not be available; ignore and fallback
@@ -249,7 +249,7 @@
   BEGIN
     -- Prefer Vault for cron secret
     BEGIN
-      cron_secret := vault.get('cron/secret');
+      cron_secret := public.vault_get('cron/secret');
     EXCEPTION WHEN OTHERS THEN
       NULL;
     END;
@@ -260,7 +260,7 @@
 
     -- Obtain anon key (safe to store; needed by gateway on custom/project domains)
     BEGIN
-      anon_key := vault.get('supabase/anon_key');
+      anon_key := public.vault_get('supabase/anon_key');
     EXCEPTION WHEN OTHERS THEN
       NULL;
     END;
