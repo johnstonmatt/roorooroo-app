@@ -3,6 +3,8 @@ import { Hono } from "jsr:@hono/hono@4.9.8";
 import type { ContentfulStatusCode } from "jsr:@hono/hono@4.9.8/utils/http-status";
 import type { AppVariables } from "../types.ts";
 import { createSupabaseClient } from "../lib/supabase.ts";
+import { config } from "../lib/config.ts";
+import { validateAndThrow } from "../lib/validation.ts";
 
 const auth = new Hono<{ Variables: AppVariables }>();
 
@@ -46,6 +48,67 @@ auth.post("/login", async (c) => {
   } catch (e) {
     console.error("/auth/login error", e);
     return c.json({ error: "Failed to sign in" }, 500);
+  }
+});
+
+/**
+ * POST /api/auth/signup
+ * Registers a user using email/password via Supabase Auth
+ * Sends a confirmation email and does not return session tokens
+ */
+auth.post("/signup", async (c) => {
+  try {
+    const { email, password, displayName } = await c.req.json();
+
+    // Validate request
+    validateAndThrow(
+      {
+        email: { required: true, type: "email" },
+        password: { required: true, type: "string", minLength: 6 },
+        displayName: {
+          required: false,
+          type: "string",
+          minLength: 1,
+          maxLength: 100,
+        },
+      },
+      { email, password, displayName },
+    );
+
+    const supabase = createSupabaseClient();
+
+    const emailRedirectTo = `${config.frontend.url}/dashboard`;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo,
+        data: {
+          display_name: (displayName && String(displayName).trim()) ||
+            String(email).split("@")[0],
+        },
+      },
+    });
+
+    if (error) {
+      const status: ContentfulStatusCode =
+        (error as unknown as { status?: ContentfulStatusCode })?.status ?? 400;
+      const code = (error as unknown as { code?: string })?.code;
+      const message = (error as unknown as { message?: string })?.message ||
+        "Failed to sign up";
+      return c.json({ error: message, code }, status);
+    }
+
+    // For security, do not return user details here
+    return c.json({
+      message: "Signup successful. Check your email to confirm.",
+    }, 200);
+  } catch (e) {
+    console.error("/auth/signup error", e);
+    // If validation error bubbled up, it was already meaningful; standardize response
+    const message = (e as { message?: string })?.message || "Failed to sign up";
+    return c.json({ error: message }, 400);
   }
 });
 
