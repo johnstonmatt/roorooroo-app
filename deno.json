@@ -1,7 +1,7 @@
 {
   "tasks": {
-    "build": "cd frontend && pnpm build",
-    "deploy": "npx supabase functions deploy",
+    "frontend:build": "cd frontend && pnpm build",
+    "fns:deploy": "npx supabase functions deploy",
     "db:push": "npx supabase db push",
     "db:gen-types": "npx supabase gen types typescript --project-id hfzyljzxjrhvenwjyxlo > supabase/db/database.types.ts",
     "db:unsafe-nuke": "npx supabase db reset --linked hfzyljzxjrhvenwjyxlo",
