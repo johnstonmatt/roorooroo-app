@@ -129,13 +129,14 @@ export class NotificationService {
     });
 
     if (response?.error) {
+      console.error(response.error.name, response.error.message);
       return {
         success: false,
         channel,
         error: response.error.message,
       };
     }
-
+    console.log("email sent", response.data.id);
     return {
       success: true,
       channel,
