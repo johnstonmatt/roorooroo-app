@@ -123,7 +123,7 @@ monitorCheck.post(
         monitor.notification_channels?.length > 0
       ) {
         console.log("Status changed, evaluating notifications...");
-        
+
         const notificationService = new NotificationService();
 
         let shouldNotify = false;

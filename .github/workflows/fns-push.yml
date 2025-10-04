@@ -22,10 +22,10 @@ jobs:
       - name: Install Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: lts
+          deno-version: v2.5
 
       - name: Build step
-        run: "deno task build"
+        run: "deno task fns:checks"
 
       - uses: supabase/setup-cli@v1
         with:
