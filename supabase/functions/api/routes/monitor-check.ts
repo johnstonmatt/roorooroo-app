@@ -111,45 +111,64 @@ monitorCheck.post(
         })
         .eq("id", monitor.id);
 
-      // Send notifications if status changed
+      // Send notifications only for actionable status transitions to reduce cost
+      // - Entering error from any non-error state => notify "error"
+      // - Any transition into "found" => notify "pattern_found"
+      // - Transition from "found" to "not_found" => notify "pattern_lost"
+      // - Initial transition from "pending" to "not_found" => do NOT notify
       if (
         checkResult.status !== monitor.last_status &&
         monitor.notification_channels?.length > 0
       ) {
         const notificationService = new NotificationService();
 
-        let notificationType: "pattern_found" | "pattern_lost" | "error";
+        let shouldNotify = false;
+        let notificationType: "pattern_found" | "pattern_lost" | "error" | null = null;
 
-        if (checkResult.status === "error") {
-          notificationType = "error";
-        } else if (
-          checkResult.status === "found" && monitor.last_status !== "found"
-        ) {
-          notificationType = "pattern_found";
-        } else if (
-          checkResult.status === "not_found" && monitor.last_status === "found"
-        ) {
-          notificationType = "pattern_lost";
-        } else {
-          // No notification needed for this status change
-          notificationType = checkResult.status === "found"
-            ? "pattern_found"
-            : "pattern_lost";
+        const prev = (monitor.last_status || "pending") as
+          | "pending"
+          | "found"
+          | "not_found"
+          | "error";
+        const next = checkResult.status as "found" | "not_found" | "error";
+
+        if (next === "error") {
+          // Notify when entering error state (from any non-error state)
+          if (prev !== "error") {
+            shouldNotify = true;
+            notificationType = "error";
+          }
+        } else if (next === "found") {
+          // Notify when pattern becomes found from any non-found state
+          if (prev !== "found") {
+            shouldNotify = true;
+            notificationType = "pattern_found";
+          }
+        } else if (next === "not_found") {
+          // Only notify loss when transitioning from found to not_found
+          if (prev === "found") {
+            shouldNotify = true;
+            notificationType = "pattern_lost";
+          }
         }
 
-        try {
-          await notificationService.sendNotifications(
-            {
-              monitor: monitor as Monitor,
-              type: notificationType,
-              contentSnippet: checkResult.contentSnippet,
-              errorMessage: checkResult.errorMessage,
-            },
-            monitor.notification_channels,
-          );
-        } catch (notificationError) {
-          console.error("Failed to send notifications:", notificationError);
-          // Don't fail the check if notifications fail
+        if (shouldNotify && notificationType) {
+          try {
+            await notificationService.sendNotifications(
+              {
+                monitor: monitor as Monitor,
+                type: notificationType,
+                contentSnippet: checkResult.contentSnippet,
+                errorMessage: checkResult.errorMessage,
+              },
+              monitor.notification_channels,
+            );
+          } catch (notificationError) {
+            console.error("Failed to send notifications:", notificationError);
+            // Don't fail the check if notifications fail
+          }
+        } else {
+          // Skip notifications for non-actionable transitions (e.g., initial not_found)
         }
       }
 
