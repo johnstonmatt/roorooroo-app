@@ -122,6 +122,8 @@ monitorCheck.post(
         checkResult.status !== monitor.last_status &&
         monitor.notification_channels?.length > 0
       ) {
+        console.log("Status changed, evaluating notifications...");
+        
         const notificationService = new NotificationService();
 
         let shouldNotify = false;
