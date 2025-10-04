@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
+        with:
+          
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -31,4 +33,4 @@ jobs:
         with:
           version: latest
 
-      - run: supabase functions deploy github-action-deploy --project-ref $PROJECT_ID
+      - run: supabase functions deploy --project-ref $PROJECT_ID
