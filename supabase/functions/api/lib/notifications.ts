@@ -1,5 +1,6 @@
 // Notification handling service
 import { type SMSMessage, type SMSResult, SMSService } from "./sms-service.ts";
+import { Resend } from "npm:resend@6.1.2";
 
 export interface NotificationChannel {
   type: "email" | "sms";
@@ -119,11 +120,20 @@ export class NotificationService {
       message,
     });
 
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
+
+    resend.emails.send({
+      from: "notifications@roorooroo.com",
+      to: channel.address,
+      subject: this.getEmailSubject(payload),
+      html: this.formatEmailMessage(payload),
+    });
+
     return {
       success: true,
       channel,
       messageId: `email_${Date.now()}_${
-        Math.random().toString(36).substr(2, 9)
+        Math.random().toString(36).slice(2, 9)
       }`,
     };
   }
