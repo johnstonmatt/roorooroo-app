@@ -84,7 +84,7 @@ export default function StatusTag() {
         <Badge
           variant="outline"
           className={cn(
-            "bg-gray-100 text-gray-700 inline-flex items-center gap-1 border-transparent px-2 py-0.5 text-xs leading-none",
+            "bg-blue-100 text-blue-700 inline-flex items-center gap-1 border-transparent px-2 py-0.5 text-xs leading-none",
           )}
           aria-label="version"
           title={status.timestamp}
