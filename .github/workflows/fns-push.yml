@@ -25,6 +25,8 @@ jobs:
       - name: Build step
         run: "deno task fns:checks"
 
+      - run: supabase secrets set CURRENT_SHA=${{ github.sha }} --project-ref $PROJECT_ID
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
