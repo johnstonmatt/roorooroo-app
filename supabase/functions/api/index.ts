@@ -16,7 +16,7 @@ import { auth } from "./routes/auth.ts";
 // Create main Hono application
 import type { AppVariables } from "./types.ts";
 const api = new Hono<{ Variables: AppVariables }>().basePath("/api");
-const version = Deno.env.get("CURRENT_SHA") || "v0.0.0";
+const version = Deno.env.get("CURRENT_SHA")?.slice(0, 7) || "v0.0.0";
 
 api.use(logger());
 
