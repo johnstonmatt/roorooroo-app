@@ -41,9 +41,25 @@ export default function StatusTag() {
 
   // Map to existing app badge styles
   const getBadgeClasses = () => {
-    if (loading) return { badge: "bg-yellow-100 text-yellow-700", dot: "bg-yellow-500", text: "Loading" } as const;
-    if (error || !status) return { badge: "bg-red-100 text-red-700", dot: "bg-red-500", text: "Disconnected" } as const;
-    return { badge: "bg-green-100 text-green-700", dot: "bg-green-500", text: "API OK" } as const;
+    if (loading) {
+      return {
+        badge: "bg-yellow-100 text-yellow-700",
+        dot: "bg-yellow-500",
+        text: "Loading",
+      } as const;
+    }
+    if (error || !status) {
+      return {
+        badge: "bg-red-100 text-red-700",
+        dot: "bg-red-500",
+        text: "Disconnected",
+      } as const;
+    }
+    return {
+      badge: "bg-green-100 text-green-700",
+      dot: "bg-green-500",
+      text: "API OK",
+    } as const;
   };
 
   const styles = getBadgeClasses();
@@ -74,7 +90,11 @@ export default function StatusTag() {
           title={status.timestamp}
         >
           <span className="w-2 h-2 rounded-full bg-gray-500" />
-          <span>{envText ? envText : ""}{envText && versionText ? " • " : ""}{versionText ?? ""}</span>
+          <span>
+            {envText ? envText : ""}
+            {envText && versionText ? " • " : ""}
+            {versionText ?? ""}
+          </span>
         </Badge>
       )}
     </div>

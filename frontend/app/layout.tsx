@@ -38,11 +38,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 pb-2">
-        <Suspense fallback={null}>
-          {children}
-          <StatusTag />
-        </Suspense>
-        <Analytics />
+          <Suspense fallback={null}>
+            {children}
+            <StatusTag />
+          </Suspense>
+          <Analytics />
         </div>
       </body>
     </html>
