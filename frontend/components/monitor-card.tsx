@@ -140,7 +140,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
   };
 
   const getIntervalText = () => {
-    const minutes = monitor.check_interval / 60;
+    const minutes = Math.floor(monitor.check_interval / 60);
     if (minutes < 60) {
       return `${minutes}m`;
     }

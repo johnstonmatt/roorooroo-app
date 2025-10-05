@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -145,6 +146,7 @@ export default function DashboardPage() {
                 New Watcher
               </Link>
             </Button>
+            <SignOutButton className="border-orange-300 text-orange-700" />
           </div>
         </div>
       </header>

@@ -1,0 +1,52 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
+import { api } from "@/lib/api-client";
+import { LogOut } from "lucide-react";
+
+interface Props {
+  className?: string;
+  size?: "sm" | "default" | "lg";
+}
+
+export function SignOutButton({ className, size = "default" }: Props) {
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  const onSignOut = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      // Clear the browser session first
+      await supabase.auth.signOut();
+      // Best-effort: notify API (no-op server acknowledgment)
+      try {
+        await api.post("/auth/logout");
+      } catch {}
+      router.push("/auth/login");
+    } catch (e) {
+      // Even if signOut throws, push to login so the user isn't stuck
+      router.push("/auth/login");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      className={className}
+      size={size}
+      onClick={onSignOut}
+      disabled={loading}
+      title="Sign out"
+    >
+      <LogOut className="h-4 w-4 mr-2" />
+      {loading ? "Signing out..." : "Sign Out"}
+    </Button>
+  );
+}

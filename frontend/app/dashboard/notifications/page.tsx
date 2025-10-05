@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { NotificationsList } from "@/components/notifications-list";
@@ -84,6 +85,7 @@ export default function NotificationsPage() {
       {/* Header */}
       <header className="border-b border-orange-200 bg-white/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div />
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -108,6 +110,7 @@ export default function NotificationsPage() {
               </div>
             </div>
           </div>
+          <SignOutButton className="border-orange-300 text-orange-700" />
         </div>
       </header>
 

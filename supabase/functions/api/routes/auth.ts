@@ -121,4 +121,19 @@ auth.post("/signup", async (c) => {
   }
 });
 
+/**
+ * POST /api/auth/logout
+ * Clears client session context. Invalidate tokens on client; server simply acknowledges.
+ */
+auth.post("/logout", async (c) => {
+  try {
+    // Optionally: in the future, use admin APIs to revoke the user's refresh token.
+    // For now, the browser clears its session; we just acknowledge.
+    return c.json({ success: true, message: "Signed out" });
+  } catch (e) {
+    console.error("/auth/logout error", e);
+    return c.json({ error: "Failed to sign out" }, 500);
+  }
+});
+
 export { auth };

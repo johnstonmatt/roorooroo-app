@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { SignOutButton } from "@/components/sign-out-button";
 import {
   type NotificationChannel,
   NotificationChannels,
@@ -131,6 +132,7 @@ export default function NewMonitorPage() {
               </div>
             </div>
           </div>
+          <SignOutButton className="border-orange-300 text-orange-700" />
         </div>
       </header>
 
