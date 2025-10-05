@@ -30,6 +30,6 @@ jobs:
           version: latest
 
       - run: supabase secrets set CURRENT_SHA=${{ github.sha }} --project-ref $PROJECT_ID
-      
+
       # this is broken
       - run: supabase functions deploy --project-ref $PROJECT_ID
