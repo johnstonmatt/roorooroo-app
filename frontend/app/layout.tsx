@@ -5,7 +5,7 @@ import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Suspense } from "react";
-import VersionTag from "@/components/version-tag";
+import StatusTag from "@/components/status-tag";
 
 export const metadata: Metadata = {
   title: "RooRooRoo - Your Faithful Website Watcher",
@@ -37,11 +37,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <Suspense fallback={null}>{children}</Suspense>
+        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 pb-2">
         <Suspense fallback={null}>
-          <VersionTag />
+          {children}
+          <StatusTag />
         </Suspense>
         <Analytics />
+        </div>
       </body>
     </html>
   );

@@ -53,7 +53,7 @@ api.get(
   "/status",
   (c) =>
     c.json({
-      service: "Hono API Server",
+      service: "RooRooRoo API Server",
       version,
       timestamp: new Date().toISOString(),
       uptime: performance.now(),
