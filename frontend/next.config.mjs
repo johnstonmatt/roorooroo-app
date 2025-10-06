@@ -11,6 +11,7 @@ const nextConfig = {
   },
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
+  output: "export",
 };
 
 export default nextConfig;

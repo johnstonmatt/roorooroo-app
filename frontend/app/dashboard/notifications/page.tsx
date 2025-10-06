@@ -17,9 +17,9 @@ interface Notification {
   channel: string;
   message: string;
   status: string;
-  error_message: string | null;
+  error_message?: string;
   sent_at: string;
-  monitors: {
+  monitors?: {
     name: string;
     url: string;
   };
