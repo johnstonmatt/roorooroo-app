@@ -219,12 +219,12 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           {/* Pattern Info */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-orange-600">Watching for:</span>
-            <code className="bg-orange-50 text-orange-800 px-2 py-1 rounded text-xs">
-              {monitor.pattern}
-            </code>
             <Badge variant="outline" className="text-xs">
               {monitor.pattern_type.replace("_", " ")}
             </Badge>
+            <code className="bg-orange-50 text-orange-800 px-2 py-1 rounded text-xs">
+              {monitor.pattern}
+            </code>
           </div>
 
           {/* Status and Timing */}
