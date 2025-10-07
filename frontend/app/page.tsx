@@ -70,7 +70,7 @@ export default function HomePage() {
               variant="secondary"
               className="bg-orange-100 text-orange-700"
             >
-              Free Forever
+              Free
             </Badge>
             <Badge
               variant="secondary"
@@ -246,7 +246,7 @@ export default function HomePage() {
             <Link href="/auth/signup">Create Your Free Account</Link>
           </Button>
           <p className="text-sm text-orange-600 mt-4">
-            No credit card required • Free forever • Setup in minutes
+            No credit card required • Free • Setup in minutes
           </p>
         </div>
       </section>
