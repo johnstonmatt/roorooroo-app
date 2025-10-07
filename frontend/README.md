@@ -31,9 +31,6 @@ Create a `.env.local` in the project root and set your environment variables:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# Optional: if you use service-role server-side utilities
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
 # Optional: Vercel Analytics
 VERCEL_ANALYTICS_ID=optional
 ```
@@ -57,26 +54,17 @@ Open the app at `http://localhost:3000`.
 
 ```text
 app/                 Next.js app router pages, layouts, and routes
-  api/               Route handlers (e.g., monitors)
   auth/              Auth pages (login/signup)
   dashboard/         Dashboard routes and layout
 components/          Shared components
   ui/                Radix-based UI primitives
 hooks/               React hooks
 lib/                 Utilities and clients (e.g., Supabase)
-  supabase/          Supabase client and server helpers
+  supabase/          Supabase client
 public/              Static assets
 scripts/             SQL or tooling scripts
 styles/              Global styles
 ```
-
-## Database & Supabase
-
-- Use the SQL files in `scripts/` to bootstrap your database:
-  - `001_create_tables.sql`
-  - `002_create_profile_trigger.sql`
-- You can run these via the Supabase SQL editor or CLI.
-- Configure Supabase env vars in `.env.local` (see above).
 
 ## Coding Standards
 

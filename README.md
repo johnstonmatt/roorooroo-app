@@ -1,216 +1,249 @@
 # RooRooRoo App
 
-A full-stack application composed of a static-exported Next.js 14 frontend and a
-Supabase-backed API built as Deno Edge Functions using Hono. It provides website
-“watchers” (monitors) that check a URL for a pattern and notify users via email
-or SMS when content appears, disappears, or errors.
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?logo=tailwindcss)](https://tailwindcss.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3FCF8E?logo=supabase)](https://supabase.com/)
+[![Deno](https://img.shields.io/badge/Deno-2-black?logo=deno)](https://deno.com/)
+[![Hono](https://img.shields.io/badge/Hono-4-FF7E33)](https://hono.dev/)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
-- Frontend: Next.js 14 + React 18 + Tailwind CSS v4, Radix UI primitives,
-  TypeScript
+A full‑stack application composed of a static‑exported
+[Next.js 14](https://nextjs.org/) frontend and a Supabase‑backed API built as
+[Deno](https://deno.com/) Edge Functions using [Hono](https://hono.dev/). It
+provides website “watchers” (monitors) that check a URL for a pattern and notify
+users via email or SMS when content appears, disappears, or errors.
+
+- Frontend: Next.js 14 + React 18 +
+  [Tailwind CSS v4](https://tailwindcss.com/) +
+  [Radix UI](https://www.radix-ui.com/) primitives, TypeScript
 - Backend/API: Supabase Edge Functions (Deno v2) using Hono
-- Database/Auth/Storage: Supabase (Postgres + RLS, Auth, Storage, Realtime)
-- Notifications: Email (Resend) and SMS (Twilio)
-- Scheduling: pg_cron via RPC helpers to trigger monitor checks
-- CI/CD: GitHub Actions for function deploys and DB ops
+- Database/Auth/Storage: [Supabase](https://supabase.com/) (Postgres + RLS,
+  Auth, Storage, Realtime)
+- Notifications: Email ([Resend](https://resend.com/)) and SMS
+  ([Twilio](https://www.twilio.com/))
+- Scheduling: [pg_cron](https://github.com/citusdata/pg_cron) via RPC helpers
+- CI/CD: [GitHub Actions](https://github.com/features/actions) for function
+  deploys and DB ops
+
+> Tip: Quick links — [frontend/](frontend/) •
+> [functions/api](supabase/functions/api/) • [migrations](supabase/migrations/)
+> • [workflows](.github/workflows/)
+
+---
+
+## Table of contents
+
+- [Motivation](#motivation)
+- [Limitations](#limitations)
+- [Future Releases](#future-releases)
+- [Why `/functions/v1/api` ?](#why-functionsv1api-)
+- [Repository structure](#repository-structure)
+- [Architecture](#architecture)
+- [API](#api)
+- [Environment variables](#environment-variables)
+- [Database and migrations](#database-and-migrations)
+- [Frontend notes](#frontend-notes)
+- [Deployment](#deployment)
+- [Security](#security)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ## Motivation
 
-This project has 2 motivations:
+This project has two motivations:
 
-1. Build something with as many Supabase features as I can for my onboarding
-   "dogfooding" project at Supabase.
-2. Create a tool which can watch websites for changes so people don't need to
+1. Build something with as many [Supabase](https://supabase.com/) features as
+   possible for my onboarding “dogfooding” project at Supabase.
+2. Create a tool that can watch websites for changes so people don’t need to
    waste time refreshing websites by hand.
 
 ## Limitations
 
 - Users must have a `@supabase.io` email address
-- Content must exist before "hydration" in pure HTML
-- Does not adhere to `robots.txt`
+- Content must exist pre‑hydration in the raw HTML (no client‑only content)
+- Does not adhere to
+  [`robots.txt`](https://developers.google.com/search/docs/crawling-indexing/robots/intro)
 
 ## Future Releases
 
-- Support for browser automation for flexibilty and reliability
+- Support for browser automation (flexibility and reliability)
 - LLM integration for natural language watcher specifications
-- Caching and Performance optimization
+- Caching and performance optimizations
 
 ## Why `/functions/v1/api` ?
 
 This repo deliberately uses an Edge Function for an API rather than a typical
-Supabase architecture that avoids an API all together. This is mostly because
-I'm on the Edge Functions team and wanted to see how far I could take it, but
-there are benefits, like the portability not relying on any frontend cloud APIs
-and shipping purely static assets to the browser.
+Supabase architecture that avoids an API altogether. This is mostly because I’m
+on the Edge Functions team and wanted to see how far I could take it, but there
+are benefits, like portability (not relying on frontend cloud APIs) and shipping
+purely static assets to the browser.
 
 ## Repository structure
 
-- frontend/
-  - Next.js app (App Router) with UI primitives in components/ui and Supabase
-    helpers in lib/supabase
-  - next.config.mjs sets output: "export" for static export with trailing
-    slashes
-  - package.json scripts: dev, build, start, lint
-- supabase/
-  - config.toml: local dev ports/services for Supabase stack
-  - migrations/: SQL migrations for tables, policies, and cron RPC helpers
-  - functions/api/: Hono app with routes, middleware, and libs
-    - routes: auth, monitors, monitor-check, notifications, webhooks (Twilio)
-    - middleware: auth (Supabase JWT), cors, cron, error handling
-    - lib: config, supabase client, cron helpers, notifications (Resend +
-      Twilio)
-    - index.ts: registers routes under basePath /api and serves via Deno.serve
-- .github/workflows/
-  - fns-push.yml: deploys Supabase functions on pushes to main (uses Deno +
-    supabase CLI)
-  - db-push.yml: example workflow to apply SQL files on tag push (expects
-    scripts/*.sql)
+```text
+frontend/
+  app/
+  components/ui/
+  lib/supabase/
+  next.config.mjs
+  package.json
+supabase/
+  config.toml
+  functions/api/
+    index.ts
+    routes/
+    middleware/
+    lib/
+  migrations/
+.github/
+  workflows/
+```
 
-## High-level architecture
+- Frontend: Next.js app with UI primitives in
+  [`components/ui`](frontend/components/ui/) and Supabase helpers in
+  [`lib/supabase`](frontend/lib/supabase/). See
+  [`next.config.mjs`](frontend/next.config.mjs).
+- Supabase: Local config [`config.toml`](supabase/config.toml), SQL migrations
+  in [`migrations/`](supabase/migrations/), and Edge Function in
+  [`functions/api`](supabase/functions/api/).
+- Workflows: GitHub Actions under [`.github/workflows/`](.github/workflows/).
 
-Frontend (static)
+## Architecture
 
-- Next.js 14 outputs a static site (output: export) served by any static host
-- Auth and data via Supabase client-side SDK
-- Calls API endpoints hosted as a single Supabase Edge Function named `api`
+```mermaid
+graph TD
+  A[Browser (Next.js static site)] -->|Supabase JS| B[Supabase (Auth, Postgres, Storage, Realtime)]
+  A -->|HTTP| C[Edge Function: api (Hono)]
+  B <--> C
+  subgraph Cron
+    D[pg_cron] -->|HTTP POST /api/monitors/check| C
+  end
+  C -->|Resend| E[Email]
+  C -->|Twilio SMS| F[SMS]
+  F -->|Webhook /api/webhooks/sms-status| C
+```
 
-API (Supabase Edge Functions / Deno + Hono)
+- Frontend (static): Next.js 14 outputs a static site (`output: "export"`)
+  served by any static host. Auth/data via Supabase client SDK.
+- API: Single Supabase Edge Function named `api` exposing routes under `/api`
+  using Hono.
+- DB: RLS‑secured Postgres tables. `pg_cron` triggers monitor checks via HTTP
+  back to the `api` function.
+- Notifications: Email (Resend) and SMS (Twilio) with delivery status webhook.
 
-- Base path: /api
-- Public endpoints: health, status, auth (login, signup, logout), webhooks
-  (Twilio)
-- Authenticated endpoints: monitors (CRUD), notifications (listing)
-- Cron-protected endpoint: /api/monitors/check — invoked by pg_cron to run
-  checks
-- CORS: allows requests from FRONTEND_URL and PRODUCTION_FRONTEND_URL (and
-  optional extras)
+## API
 
-Database (Supabase Postgres)
+Function name: `api` (served under `/functions/v1/api` on Supabase)
 
-- Tables: profiles, monitors, monitor_logs, notifications
-- Row Level Security (RLS) policies enforce per-user access
-- pg_cron and helper RPC functions schedule monitor checks that POST back to the
-  API (see migrations)
+| Method | Path                       | Auth                             | Notes                                     |
+| -----: | -------------------------- | -------------------------------- | ----------------------------------------- |
+|    GET | `/api/health`              | Public                           | Health check                              |
+|    GET | `/api/status`              | Public                           | Service metadata and endpoints            |
+|    GET | `/api/meta`                | Public                           | Simple metadata                           |
+|   POST | `/api/auth/login`          | Public                           | Email/password login → returns tokens     |
+|   POST | `/api/auth/signup`         | Public                           | Email/password signup; sends confirmation |
+|   POST | `/api/auth/logout`         | Public                           | Acknowledge logout                        |
+|    GET | `/api/webhooks/sms-status` | Public                           | Twilio webhook verification/health        |
+|   POST | `/api/webhooks/sms-status` | Public + signature validation    | Twilio status callbacks                   |
+|   POST | `/api/monitors/check`      | Cron only (X‑Cron‑Secret or SRK) | Invoked by cron; executes a check         |
+|    GET | `/api/monitors`            | Bearer user JWT                  | List monitors                             |
+|   POST | `/api/monitors`            | Bearer user JWT                  | Create monitor (+ schedule cron)          |
+|    PUT | `/api/monitors/:id`        | Bearer user JWT                  | Update monitor                            |
+|    GET | `/api/notifications`       | Bearer user JWT                  | List notifications (`since`, `limit`)     |
 
-Notifications
-
-- Email via Resend (RESEND_API_KEY)
-- SMS via Twilio (ACCOUNT_SID, AUTH_TOKEN, PHONE_NUMBER); optional webhook for
-  delivery status
-
-## API overview
-
-Function name: `api` (served under /functions/v1/api on Supabase)
-
-Base: /api
-
-Public
-
-- GET /api/health — health check
-- GET /api/status — service metadata and known routes
-- GET /api/meta — simple metadata endpoint
-- POST /api/auth/login — email/password login against Supabase Auth, returns
-  access/refresh tokens
-- POST /api/auth/signup — email/password signup; sends confirmation email
-- POST /api/auth/logout — acknowledge logout (client clears session)
-- GET/POST /api/webhooks/sms-status — Twilio webhook for delivery receipts
-  (signature validation)
-
-Cron-only
-
-- POST /api/monitors/check — executes a check for a given monitor_id + user_id
-  - Auth via X-Cron-Secret or service role credentials (see middleware/cron.ts)
-
-Authenticated (Authorization: Bearer <Supabase user JWT>)
-
-- GET /api/monitors — list monitors for current user
-- POST /api/monitors — create a monitor; also attempts to schedule a cron job
-- PUT /api/monitors/:id — update a monitor (only owned by user)
-- GET /api/notifications — list notifications with optional query params (since,
-  limit)
-
-Note: When deployed on Supabase, the full path is:
-
-- https://<project-ref>.supabase.co/functions/v1/api/health (etc.)
+> Cron auth: see
+> [`middleware/cron.ts`](supabase/functions/api/middleware/cron.ts). Accepts
+> `X-Cron-Secret` or Supabase service‑role credentials.
 
 ## Environment variables
 
-Frontend (frontend/.env.local)
+Frontend (`frontend/.env.local`)
 
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
-- Optional: VERCEL_ANALYTICS_ID
+| Name                            | Required | Example                   | Notes                |
+| ------------------------------- | -------- | ------------------------- | -------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Yes      | `https://xyz.supabase.co` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes      | `eyJhbGciOi...`           | Anonymous key        |
+| `VERCEL_ANALYTICS_ID`           | No       | `abc123`                  | Optional             |
 
-Edge Functions / API (set in Supabase project or local env for serve)
+Edge Functions / API (Supabase project secrets or local `.env`)
 
-- SUPABASE_URL
-- SUPABASE_ANON_KEY
-- SUPABASE_SERVICE_ROLE_KEY
-- FRONTEND_URL (e.g., http://localhost:3000)
-- PRODUCTION_FRONTEND_URL (e.g., https://roorooroo.app)
-- LOG_LEVEL (debug|info|warn|error; default info)
-- CRON_SECRET (shared secret for cron-only routes)
-- Twilio: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER,
-  TWILIO_WEBHOOK_URL (optional)
-- Resend: RESEND_API_KEY (optional; enables email notifications)
+| Name                        | Required    | Notes                                  |
+| --------------------------- | ----------- | -------------------------------------- |
+| `SUPABASE_URL`              | Yes         | Project URL used by server SDK         |
+| `SUPABASE_ANON_KEY`         | Yes         | Anon key                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes         | Service role key (server‑side only)    |
+| `FRONTEND_URL`              | No          | e.g., `http://localhost:3000`          |
+| `PRODUCTION_FRONTEND_URL`   | No          | e.g., `https://roorooroo.app`          |
+| `LOG_LEVEL`                 | No          | `debug`                                |
+| `CRON_SECRET`               | Recommended | Shared secret for cron endpoint        |
+| `TWILIO_ACCOUNT_SID`        | If SMS      | Twilio account SID                     |
+| `TWILIO_AUTH_TOKEN`         | If SMS      | Twilio auth token                      |
+| `TWILIO_PHONE_NUMBER`       | If SMS      | Sending phone number                   |
+| `TWILIO_WEBHOOK_URL`        | No          | Public URL to receive status callbacks |
+| `RESEND_API_KEY`            | If Email    | Enables email notifications            |
 
-Supabase Auth (config.toml references)
+Supabase Auth (referenced in [`supabase/config.toml`](supabase/config.toml))
 
-- JWT_SECRET (used by Supabase Auth for JWT signing; set via Supabase)
+| Name         | Required | Notes                               |
+| ------------ | -------- | ----------------------------------- |
+| `JWT_SECRET` | Yes      | JWT signing key managed in Supabase |
 
-GitHub Actions (secrets)
+GitHub Actions (repo secrets)
 
-- SUPABASE_PROJECT_ID, SUPABASE_ACCESS_TOKEN, JWT_SECRET
-- DATABASE_URL (for db-push workflow)
+- `SUPABASE_PROJECT_ID`, `SUPABASE_ACCESS_TOKEN`, `JWT_SECRET`
+- `DATABASE_URL` (used by the example db workflow)
 
 ## Database and migrations
 
-- Migrations live in supabase/migrations and are applied via the Supabase CLI
-- Core tables: profiles, monitors, monitor_logs, notifications (with RLS
-  policies)
-- Cron helpers (create/update/delete/check/list/get) live in
-  20240101000004_create_cron_functions.sql
-- The db-push workflow in .github/workflows expects scripts/*.sql; prefer the
-  migrations folder instead, or update the workflow to use Supabase CLI
-  migrations
+- SQL lives in [`supabase/migrations/`](supabase/migrations/); applied via the
+  Supabase CLI.
+- Core schema: see
+  [`20240101000000_create_tables.sql`](supabase/migrations/20240101000000_create_tables.sql)
+- Cron helpers: see
+  [`20240101000004_create_cron_functions.sql`](supabase/migrations/20240101000004_create_cron_functions.sql)
+
+> The example workflow [`db-push.yml`](.github/workflows/db-push.yml) expects
+> `scripts/*.sql`. Prefer the migrations folder, or update the workflow to use
+> `supabase db push`.
 
 ## Frontend notes
 
-- Next.js output is set to static export (next.config.mjs): output: "export",
-  trailingSlash: true, images: unoptimized
-- UI components are based on Radix primitives (components/ui)
-- Supabase client helpers under frontend/lib/supabase for browser, server, and
-  middleware
-- Typical scripts:
-  - pnpm dev — dev server
-  - pnpm build — production build
-  - pnpm start — start prod server (not used for static export)
-  - pnpm lint — Next/ESLint
+- Static export is enabled in [`next.config.mjs`](frontend/next.config.mjs):
+  `output: "export"`, `trailingSlash: true`, images unoptimized.
+- Supabase helpers live under [`frontend/lib/supabase`](frontend/lib/supabase/):
+  browser, server, and middleware utilities.
+- Scripts in [`frontend/package.json`](frontend/package.json):
+  - `pnpm dev` — dev server
+  - `pnpm build` — production build
+  - `pnpm start` — start prod server (not used for static export)
+  - `pnpm lint` — Next/ESLint
 
 ## Deployment
 
-- Functions: deployed via .github/workflows/fns-push.yml using Deno and
-  supabase/setup-cli
-  - Requires SUPABASE_PROJECT_ID and SUPABASE_ACCESS_TOKEN
-- Database: managed via supabase/migrations; you can integrate Supabase CLI in
-  CI
+- Functions: deployed via [`fns-push.yml`](.github/workflows/fns-push.yml) using
+  Deno and `supabase/setup-cli`
+  - Requires `SUPABASE_PROJECT_ID` and `SUPABASE_ACCESS_TOKEN` secrets
+- Database: managed via migrations in CI (Supabase CLI) or manually
 - Frontend: static export can be hosted on Vercel or any static host
 
 ## Security
 
-- Authenticated routes require Authorization: Bearer <Supabase user JWT>
-- Cron endpoints accept either X-Cron-Secret or Supabase service-role
+- Authenticated routes require `Authorization: Bearer <Supabase user JWT>`
+- Cron endpoints accept either `X-Cron-Secret` or Supabase service‑role
   credentials
-- CORS configured to allow only configured frontend origins; set FRONTEND_URL
-  and PRODUCTION_FRONTEND_URL
-- Secrets should be managed via Supabase project secrets, GitHub Actions
-  secrets, or local .env files that are not committed
+- CORS allows only configured frontend origins — set `FRONTEND_URL` and
+  `PRODUCTION_FRONTEND_URL`
+- Store secrets in Supabase project secrets, GitHub Actions secrets, or local
+  `.env` files (never commit secrets)
 
 ## Roadmap
 
-- The fns-push workflow comments indicate parts may be WIP; validate before
-  relying on it for production
+- The function deploy workflow is marked as WIP; validate before relying on it
+  for production
 - If you plan to manage DB changes via CI, align workflows to
-  supabase/migrations instead of scripts/
+  `supabase/migrations/` instead of `scripts/`
 
 ## License
 
