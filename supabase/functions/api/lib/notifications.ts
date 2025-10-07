@@ -37,6 +37,7 @@ export interface NotificationResult {
   success: boolean;
   channel: NotificationChannel;
   messageId?: string;
+  payload?: NotificationPayload;
   error?: string;
 }
 
@@ -60,31 +61,27 @@ export class NotificationService {
       this.sendSingleNotification(payload, channel)
     );
 
-    const notificationResults = await Promise.allSettled(notificationPromises);
+    const settledResults = await Promise.allSettled(notificationPromises);
 
-    for (let i = 0; i < notificationResults.length; i++) {
-      const result = notificationResults[i];
-      const channel = channels[i];
-
-      if (result.status === "fulfilled") {
-        results.push(result.value);
-        await this.logNotification(payload, channel, result.value);
+    for (const settled of settledResults) {
+      if (settled.status === "fulfilled") {
+        results.push(settled.value);
+        await this.logNotification(
+          payload,
+          settled.value.channel,
+          settled.value,
+        );
       } else {
-        const errorResult: NotificationResult = {
+        console.error("Notification promise rejected:", settled.reason);
+        console.error("Failed Payload:", JSON.stringify(payload));
+        results.push({
           success: false,
-          channel,
-          error: (() => {
-            const reason = (result as PromiseRejectedResult).reason;
-            if (
-              typeof reason === "object" && reason &&
-              "message" in (reason as Record<string, unknown>) &&
-              typeof (reason as { message?: unknown }).message === "string"
-            ) return (reason as { message: string }).message;
-            return "Unknown error";
-          })(),
-        };
-        results.push(errorResult);
-        await this.logNotification(payload, channel, errorResult);
+          payload,
+          channel: channels[settledResults.indexOf(settled)],
+          error: settled.reason instanceof Error
+            ? settled.reason.message
+            : "Unknown error",
+        });
       }
     }
 
@@ -142,12 +139,22 @@ export class NotificationService {
 
     const resend = new Resend(RESEND_API_KEY);
 
-    const response = await resend.emails.send({
-      from: "notifications@roorooroo.com",
-      to: channel.address,
-      subject: this.getEmailSubject(payload),
-      html: this.formatEmailMessage(payload),
-    });
+    let response;
+    try {
+      response = await resend.emails.send({
+        from: "notifications@roorooroo.com",
+        to: channel.address,
+        subject: this.getEmailSubject(payload),
+        html: this.formatEmailMessage(payload),
+      });
+    } catch (error) {
+      console.error("Failed to send email:", JSON.stringify(error));
+      return {
+        success: false,
+        channel,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
 
     if (response?.error) {
       console.error(response.error.name, response.error.message);
