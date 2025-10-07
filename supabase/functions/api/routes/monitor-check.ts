@@ -148,10 +148,6 @@ monitorCheck.post(
         });
       }
 
-      console.log(
-        "Status changed and notifications configured, evaluating notifications...",
-      );
-
       const notificationService = new NotificationService();
 
       const notificationSpec = getNotificationSpec(
@@ -160,6 +156,7 @@ monitorCheck.post(
       );
 
       if (!notificationSpec) {
+        console.log("No status change or no notification needed, skipping.");
         return c.json({
           success: true,
           data: {
@@ -177,6 +174,10 @@ monitorCheck.post(
         });
       }
 
+      console.log(
+        "Status changed and notifications configured, evaluating notifications...",
+      );
+
       try {
         await notificationService.sendNotifications({
           monitor: monitor as Monitor,
@@ -189,7 +190,6 @@ monitorCheck.post(
         console.error("Failed to send notifications:", error);
       }
 
-      console.log("Notification processing complete.");
       return c.json({
         success,
         data: {
@@ -198,8 +198,8 @@ monitorCheck.post(
           responseTime: checkResult.responseTime,
           contentSnippet: checkResult.contentSnippet,
           errorMessage: checkResult.errorMessage,
-          statusChanged: checkResult.status !== monitor.last_status,
-          checkedAt: new Date().toISOString(),
+          statusChanged: !!notificationSpec,
+          checkedAt: lastChecked,
         },
         message: "Monitor check completed successfully",
         timestamp: new Date().toISOString(),
