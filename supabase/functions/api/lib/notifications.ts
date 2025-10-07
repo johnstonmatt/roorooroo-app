@@ -196,9 +196,11 @@ export class NotificationService {
   }
 
   private formatEmailMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage } = payload;
+    const { monitor, type, contentSnippet, errorMessage, initial } = payload;
 
-    let message = `🐕 RooRooRoo Alert!\n\n`;
+    let message = initial
+      ? `🐕 RooRooRoo Setup Successful!\n\n`
+      : `🐕 RooRooRoo Alert!\n\n`;
 
     switch (type) {
       case "found":
@@ -237,24 +239,26 @@ export class NotificationService {
   }
 
   private formatSMSMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage } = payload;
+    const { monitor, type, contentSnippet, errorMessage, initial } = payload;
 
-    let message = `🐕 RooRooRoo Alert: `;
+    let message = initial
+      ? `🐕 RooRooRoo Setup Successful: `
+      : `🐕 RooRooRoo Alert: `;
 
     switch (type) {
       case "found":
-        message += `"${monitor.name}" found match!`;
+        message += `"${monitor.name}" found a match!`;
         if (contentSnippet && contentSnippet.length < 50) {
           message += ` Found: "${contentSnippet}"`;
         }
         break;
 
       case "not_found":
-        message += `"${monitor.name}" not_found pattern!`;
+        message += `"${monitor.name}" did not find a match!`;
         break;
 
       case "error":
-        message += `"${monitor.name}" error!`;
+        message += `"${monitor.name}" error loading your page!`;
         if (errorMessage && errorMessage.length < 50) {
           message += ` ${errorMessage}`;
         }
@@ -271,17 +275,21 @@ export class NotificationService {
   }
 
   private getEmailSubject(payload: NotificationPayload): string {
-    const { monitor, type } = payload;
+    const { monitor, type, initial } = payload;
+
+    const subjectPrefix = initial
+      ? "🐕 RooRooRoo Setup:"
+      : "🐕 RooRooRoo Alert:";
 
     switch (type) {
       case "found":
-        return `🐕 RooRooRoo Alert: ${monitor.name} - Pattern Found`;
+        return `${subjectPrefix} ${monitor.name} - Pattern Found`;
       case "not_found":
-        return `🐕 RooRooRoo Alert: ${monitor.name} - Pattern Lost`;
+        return `${subjectPrefix} ${monitor.name} - Pattern Lost`;
       case "error":
-        return `🐕 RooRooRoo Alert: ${monitor.name} - Error`;
+        return `${subjectPrefix} ${monitor.name} - Error`;
       default:
-        return `🐕 RooRooRoo Alert: ${monitor.name}`;
+        return `${subjectPrefix} ${monitor.name}`;
     }
   }
 

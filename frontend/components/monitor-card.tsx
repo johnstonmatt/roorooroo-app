@@ -18,7 +18,6 @@ import {
   Play,
   Trash2,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { api } from "@/lib/api-client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -47,7 +46,6 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isQueuing, setIsQueuing] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const toggleActive = async () => {
     setIsLoading(true);
@@ -104,14 +102,14 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
         return (
           <Badge className="bg-green-100 text-green-700">
             <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-            Pattern Matches
+            Match Found
           </Badge>
         );
       case "not_found":
         return (
           <Badge variant="secondary" className="bg-gray-100 text-gray-700">
             <span className="w-2 h-2 bg-gray-500 rounded-full mr-1"></span>
-            Pattern Doesn't Match
+            No Match Found
           </Badge>
         );
       case "error":
