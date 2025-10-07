@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   monitor_id UUID NOT NULL REFERENCES public.monitors(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL, -- 'pattern_found', 'pattern_lost', 'error'
+  type TEXT NOT NULL, -- 'found', 'not_found', 'error'
   channel TEXT NOT NULL, -- 'email', 'webhook', etc.
   message TEXT NOT NULL,
   sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

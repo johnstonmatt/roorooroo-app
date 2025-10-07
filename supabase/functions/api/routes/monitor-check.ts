@@ -124,12 +124,6 @@ monitorCheck.post(
 
       console.log(`Check result for monitor ${monitor.id}:`, checkResult);
 
-      // Send notifications only for actionable status transitions to reduce cost
-      // - Entering error from any non-error state => notify "error"
-      // - Any transition into "found" => notify "pattern_found"
-      // - Transition from "found" to "not_found" => notify "pattern_lost"
-      // - Initial transition from "pending" to "not_found" => do NOT notify
-
       if (!monitor?.notification_channels?.length) {
         console.warn(
           "No notification channels configured, skipping notifications.",

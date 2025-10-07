@@ -49,9 +49,9 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "pattern_found":
+      case "found":
         return <Emoji char="🎯" />;
-      case "pattern_lost":
+      case "not_found":
         return <Emoji char="❌" />;
       case "error":
         return <Emoji char="⚠️" />;
@@ -62,9 +62,9 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
 
   const getNotificationTitle = (type: string) => {
     switch (type) {
-      case "pattern_found":
+      case "found":
         return "Pattern Found";
-      case "pattern_lost":
+      case "not_found":
         return "Pattern Lost";
       case "error":
         return "Monitor Error";

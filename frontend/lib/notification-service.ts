@@ -17,7 +17,7 @@ export interface Monitor {
 
 export interface NotificationPayload {
   monitor: Monitor;
-  type: "pattern_found" | "pattern_lost" | "error";
+  type: "found" | "not_found" | "error";
   contentSnippet?: string;
   errorMessage?: string;
 }
@@ -163,7 +163,7 @@ export class NotificationService {
     let message = `🐕 RooRooRoo Alert!\n\n`;
 
     switch (type) {
-      case "pattern_found":
+      case "found":
         message += `Your watcher "${monitor.name}" found a match!\n\n`;
         message += `Website: ${monitor.url}\n`;
         message += `Pattern: "${monitor.pattern}"\n`;
@@ -172,8 +172,8 @@ export class NotificationService {
         }
         break;
 
-      case "pattern_lost":
-        message += `Your watcher "${monitor.name}" lost the pattern!\n\n`;
+      case "not_found":
+        message += `Your watcher "${monitor.name}" not_found the pattern!\n\n`;
         message += `Website: ${monitor.url}\n`;
         message += `Pattern: "${monitor.pattern}"\n`;
         message += `\nThe pattern is no longer found on the page.\n`;
@@ -205,15 +205,15 @@ export class NotificationService {
     let message = `🐕 RooRooRoo Alert: `;
 
     switch (type) {
-      case "pattern_found":
+      case "found":
         message += `"${monitor.name}" found match!`;
         if (contentSnippet && contentSnippet.length < 50) {
           message += ` Found: "${contentSnippet}"`;
         }
         break;
 
-      case "pattern_lost":
-        message += `"${monitor.name}" lost pattern!`;
+      case "not_found":
+        message += `"${monitor.name}" not_found pattern!`;
         break;
 
       case "error":
@@ -241,9 +241,9 @@ export class NotificationService {
     const { monitor, type } = payload;
 
     switch (type) {
-      case "pattern_found":
+      case "found":
         return `🐕 RooRooRoo Alert: ${monitor.name} - Pattern Found`;
-      case "pattern_lost":
+      case "not_found":
         return `🐕 RooRooRoo Alert: ${monitor.name} - Pattern Lost`;
       case "error":
         return `🐕 RooRooRoo Alert: ${monitor.name} - Error`;

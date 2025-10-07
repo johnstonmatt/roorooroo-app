@@ -104,14 +104,14 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
         return (
           <Badge className="bg-green-100 text-green-700">
             <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-            Pattern Found
+            Pattern Matches
           </Badge>
         );
       case "not_found":
         return (
           <Badge variant="secondary" className="bg-gray-100 text-gray-700">
             <span className="w-2 h-2 bg-gray-500 rounded-full mr-1"></span>
-            Not Found
+            Pattern Doesn't Match
           </Badge>
         );
       case "error":
