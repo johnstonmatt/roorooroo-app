@@ -35,19 +35,6 @@ export async function cronAuthMiddleware(
   const isServiceApiKey = !!apiKeyHeader && serviceRoleKey &&
     (apiKeyHeader === serviceRoleKey);
 
-  // Debug (safe): log presence/lengths, not values
-  try {
-    console.log("cronAuthMiddleware", {
-      hasCronHeader: Boolean(cronSecretHeader),
-      cronHeaderLen: cronSecretHeader.length || 0,
-      cronEnvLen: cronSecret.length || 0,
-      hasAuthBearer: Boolean(authHeader?.startsWith("Bearer ")),
-      hasApiKeyHeader: Boolean(apiKeyHeader),
-    });
-  } catch (_) {
-    // no-op
-  }
-
   // Accept EITHER a matching cron secret OR valid service-role credentials
   if (cronSecret && cronSecretHeader && cronSecretHeader === cronSecret) {
     const svc = createServiceClient();

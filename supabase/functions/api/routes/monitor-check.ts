@@ -48,9 +48,6 @@ monitorCheck.post(
         user_id: { required: true, type: "string" as const, minLength: 1 },
       };
 
-      console.log("REQUEST BODY:");
-      console.log(JSON.stringify(body));
-
       if (!supabase) {
         return c.json(
           { error: "Authorized Supabase client not found", body, success },
@@ -122,7 +119,7 @@ monitorCheck.post(
 
       const newStatus = checkResult.status;
 
-      console.log(`Check result for monitor ${monitor.id}:`, checkResult);
+      console.debug(`Check result for monitor ${monitor.id}:`, checkResult);
 
       if (!monitor?.notification_channels?.length) {
         console.warn(
@@ -132,7 +129,7 @@ monitorCheck.post(
           success,
           data: {
             monitorId: monitor.id,
-            status: checkResult.status,
+            status: newStatus,
             responseTime: checkResult.responseTime,
             didNotify: false,
           },
@@ -150,12 +147,12 @@ monitorCheck.post(
       );
 
       if (!notificationSpec) {
-        console.log("No status change or no notification needed, skipping.");
+        console.debug("No status change or no notification needed, skipping.");
         return c.json({
           success: true,
           data: {
             monitorId: monitor.id,
-            status: checkResult.status,
+            status: newStatus,
             responseTime: checkResult.responseTime,
             contentSnippet: checkResult.contentSnippet,
             errorMessage: checkResult.errorMessage,
@@ -168,7 +165,7 @@ monitorCheck.post(
         });
       }
 
-      console.log(
+      console.debug(
         "Status changed and notifications configured, evaluating notifications...",
       );
 
@@ -188,7 +185,7 @@ monitorCheck.post(
         success,
         data: {
           monitorId: monitor.id,
-          status: checkResult.status,
+          status: newStatus,
           responseTime: checkResult.responseTime,
           contentSnippet: checkResult.contentSnippet,
           errorMessage: checkResult.errorMessage,

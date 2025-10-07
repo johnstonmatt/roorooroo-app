@@ -151,6 +151,7 @@ export async function createMonitorCronJob(
     }
 
     console.log(`Created cron job ${jobName} with schedule ${cronExpression}`);
+
     return {
       success: true,
       jobName,

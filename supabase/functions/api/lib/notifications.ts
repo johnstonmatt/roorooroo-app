@@ -118,14 +118,6 @@ export class NotificationService {
     payload: NotificationPayload,
     channel: NotificationChannel,
   ): Promise<NotificationResult> {
-    const message = this.formatEmailMessage(payload);
-
-    console.log("Email notification:", {
-      to: channel.address,
-      subject: this.getEmailSubject(payload),
-      message,
-    });
-
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
     if (!RESEND_API_KEY) {
@@ -157,14 +149,15 @@ export class NotificationService {
     }
 
     if (response?.error) {
-      console.error(response.error.name, response.error.message);
+      console.error("resend failed to send", JSON.stringify(response.error));
+      console.error("Failed Payload:", JSON.stringify(payload));
       return {
         success: false,
         channel,
         error: response.error.message,
       };
     }
-    console.log("email sent", response.data.id);
+
     return {
       success: true,
       channel,
