@@ -115,16 +115,39 @@ supabase/
 
 ```mermaid
 flowchart TD
-  A[Browser (Next.js static site)] -- Supabase JS --> B[Supabase (Auth, Postgres, Storage, Realtime)]
-  A -- HTTP --> C[Edge Function: api (Hono)]
-  B <--> C
-  subgraph Cron
-    direction LR
-    D[pg_cron] -- HTTP POST /api/monitors/check --> C
+  A["Browser (Next.js static site)"]
+  C["/*"]
+  A -- HTTP --> C
+  A -- HTTP --> Z
+
+  J["create_monitor_cron_job rpc"]
+  
+  subgraph Supabase Cloud
+    subgraph EdgeFunctions
+      subgraph /api
+        C["HTTP /api/:resource"]
+        Z["POST /api/monitors"]
+        M["POST /api/monitors/check"]
+      end
+    end
+
+    subgraph Database
+      K["Tables"]
+      D["pg_cron"]
+      C -- CRUD --> K
+      Z -- Invokes RPC --> J
+      J -- Schedules --> D
+      D -- HTTP --> M
+    end
+
   end
-  C -- Resend --> E[Email]
-  C -- Twilio SMS --> F[SMS]
-  F -- Webhook /api/webhooks/sms-status --> C
+
+  subgraph external
+    G["Twilio SMS API"]
+    H["Resend Email API"]
+    M -- Sends Email --> H
+    M -- Sends SMS --> G
+  end
 ```
 
 - Frontend (static): Next.js 14 outputs a static site (`output: "export"`)
