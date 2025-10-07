@@ -41,9 +41,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
 
     // Update display value when prop value changes
     React.useEffect(() => {
-      if (value !== displayValue) {
-        setDisplayValue(value);
-      }
+      setDisplayValue(value);
     }, [value]);
 
     // Validate phone number

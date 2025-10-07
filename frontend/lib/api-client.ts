@@ -16,7 +16,7 @@ export class ApiError extends Error {
 
 interface ApiClientOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
 }
 
@@ -99,10 +99,10 @@ export const api = {
   get: (endpoint: string, headers?: Record<string, string>) =>
     apiClient(endpoint, { method: "GET", headers }),
 
-  post: (endpoint: string, body?: any, headers?: Record<string, string>) =>
+  post: (endpoint: string, body?: unknown, headers?: Record<string, string>) =>
     apiClient(endpoint, { method: "POST", body, headers }),
 
-  put: (endpoint: string, body?: any, headers?: Record<string, string>) =>
+  put: (endpoint: string, body?: unknown, headers?: Record<string, string>) =>
     apiClient(endpoint, { method: "PUT", body, headers }),
 
   delete: (endpoint: string, headers?: Record<string, string>) =>

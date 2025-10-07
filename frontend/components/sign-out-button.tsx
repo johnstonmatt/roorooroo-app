@@ -28,8 +28,8 @@ export function SignOutButton({ className, size = "default" }: Props) {
         await api.post("/auth/logout");
       } catch {}
       router.push("/auth/login");
-    } catch (e) {
-      // Even if signOut throws, push to login so the user isn't stuck
+    } catch {
+      // Even if signOut throws, push to login so the user isn&#39;t stuck
       router.push("/auth/login");
     } finally {
       setLoading(false);

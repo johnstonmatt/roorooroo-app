@@ -2,7 +2,6 @@
 
 import React from "react";
 
-import { createClient } from "@/lib/supabase/client";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -341,8 +340,8 @@ export default function NewMonitorPage() {
               </div>
               <div>
                 <strong>Pattern Tips:</strong>{" "}
-                Be specific but not too narrow. "Buy Now" is better than "Buy
-                Now - Free Shipping".
+                Be specific but not too narrow. &quot;Buy Now&quot; is better
+                than &quot;Buy Now - Free Shipping&quot;.
               </div>
               <div>
                 <strong>Notifications:</strong>{" "}

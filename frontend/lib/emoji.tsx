@@ -31,11 +31,13 @@ export function getMacOSMajorFromUA(ua?: string | null): number | null {
 // Map macOS major to an asset pack directory.
 // For now, we default everything to the Twemoji "latest" pack, but this is where you'd
 // branch to custom packs like: `apple/macos-12`, `apple/macos-14`, etc., if provided.
-export function getEmojiAssetPackForMacOS(macosMajor: number | null): string {
+export function getEmojiAssetPackForMacOS(_macosMajor: number | null): string {
   // Example future mapping (commented):
   // if (macosMajor && macosMajor >= 14) return "apple/macos-14"
   // if (macosMajor && macosMajor >= 13) return "apple/macos-13"
   // return "apple/macos-12"
+  // Currently unused, but kept for future mapping hooks
+  void _macosMajor;
   return "twemoji/latest";
 }
 

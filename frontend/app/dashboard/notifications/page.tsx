@@ -126,8 +126,8 @@ export default function NotificationsPage() {
                   No Notifications Yet
                 </h2>
                 <p className="text-orange-600 mb-8 max-w-md mx-auto">
-                  When your watchers find something interesting, you'll see all
-                  the alerts here.
+                  When your watchers find something interesting, you&#39;ll see
+                  all the alerts here.
                 </p>
                 <Button
                   asChild

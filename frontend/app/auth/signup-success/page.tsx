@@ -30,11 +30,11 @@ export default function SignupSuccessPage() {
             <div className="mb-6">
               <div className="text-4xl mb-4">📧</div>
               <p className="text-orange-700 mb-4">
-                We've sent you a confirmation email. Click the link in the email
-                to activate your account and start watching websites!
+                We&#39;ve sent you a confirmation email. Click the link in the
+                email to activate your account and start watching websites!
               </p>
               <p className="text-sm text-orange-600">
-                Don't see the email? Check your spam folder or wait a few
+                Don&#39;t see the email? Check your spam folder or wait a few
                 minutes.
               </p>
             </div>

@@ -102,8 +102,8 @@ export default function HomePage() {
             Why Choose RooRooRoo?
           </h2>
           <p className="text-xl text-orange-600 max-w-2xl mx-auto">
-            Just like a faithful companion, we're always watching and ready to
-            alert you
+            Just like a faithful companion, we&#39;re always watching and ready
+            to alert you
           </p>
         </div>
 
@@ -189,8 +189,8 @@ export default function HomePage() {
               </div>
               <h3 className="font-semibold text-orange-800 mb-2">E-commerce</h3>
               <p className="text-sm text-orange-600">
-                Watch for "Buy Now" buttons, stock availability, or price
-                changes
+                Watch for &quot;Buy Now&quot; buttons, stock availability, or
+                price changes
               </p>
             </div>
 

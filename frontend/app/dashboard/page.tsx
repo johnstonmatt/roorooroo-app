@@ -28,7 +28,7 @@ interface Monitor {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [todayNotificationCount, setTodayNotificationCount] = useState(0);
