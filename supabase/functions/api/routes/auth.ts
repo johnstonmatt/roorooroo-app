@@ -125,7 +125,7 @@ auth.post("/signup", async (c) => {
  * POST /api/auth/logout
  * Clears client session context. Invalidate tokens on client; server simply acknowledges.
  */
-auth.post("/logout", async (c) => {
+auth.post("/logout", (c) => {
   try {
     // Optionally: in the future, use admin APIs to revoke the user's refresh token.
     // For now, the browser clears its session; we just acknowledge.
