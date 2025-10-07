@@ -68,6 +68,7 @@ This project has two motivations:
 
 ## Future Releases
 
+- Support for Supabase Realtime
 - Support for browser automation (flexibility and reliability)
 - LLM integration for natural language watcher specifications
 - Caching and performance optimizations

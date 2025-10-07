@@ -3,6 +3,10 @@
     "frontend:build": "cd frontend && pnpm build",
     "fns:deploy": "npx supabase functions deploy",
     "fns:checks": "deno fmt --check && deno lint ./supabase/functions/api && deno check ./supabase/functions/api",
+    "frontend:checks": "cd frontend && pnpm lint",
+    "checks": {
+      "command": "deno task fns:checks && deno task frontend:checks"
+    },
     "db:push": "npx supabase db push",
     "db:gen-types": "npx supabase gen types typescript --project-id hfzyljzxjrhvenwjyxlo > supabase/db/database.types.ts",
     "db:unsafe-nuke": "npx supabase db reset --linked hfzyljzxjrhvenwjyxlo",

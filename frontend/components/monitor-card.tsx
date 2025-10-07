@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface Monitor {
@@ -39,13 +38,13 @@ interface Monitor {
 
 interface MonitorCardProps {
   monitor: Monitor;
+  onChanged?: () => Promise<void> | void;
 }
 
-export function MonitorCard({ monitor }: MonitorCardProps) {
+export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isQueuing, setIsQueuing] = useState(false);
-  const router = useRouter();
 
   const toggleActive = async () => {
     setIsLoading(true);
@@ -53,7 +52,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
       await api.put(`/monitors/${monitor.id}`, {
         is_active: !monitor.is_active,
       });
-      router.refresh();
+      if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error toggling monitor:", error);
     } finally {
@@ -73,7 +72,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
     setIsDeleting(true);
     try {
       await api.delete(`/monitors/${monitor.id}`);
-      router.refresh();
+      if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error deleting monitor:", error);
     } finally {
@@ -87,7 +86,7 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
       await api.put(`/monitors/${monitor.id}`, {
         last_status: "pending",
       });
-      router.refresh();
+      if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error queueing monitor recheck:", error);
       alert("Failed to queue recheck");

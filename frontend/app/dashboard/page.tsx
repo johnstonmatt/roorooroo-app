@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { api, ApiError } from "@/lib/api-client";
@@ -36,6 +36,22 @@ export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const refreshMonitors = useCallback(async () => {
+    try {
+      const response = await api.get("/monitors");
+      setMonitors(response?.data || []);
+    } catch (error) {
+      console.error("Error fetching monitors:", error);
+      if (
+        (error instanceof ApiError && error.status === 401) ||
+        (error instanceof Error && error.message.includes("401"))
+      ) {
+        router.push("/auth/login");
+        return;
+      }
+    }
+  }, [router]);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -58,19 +74,7 @@ export default function DashboardPage() {
         setProfile(profile);
 
         // Get user's monitors using the new API endpoint
-        try {
-          const response = await api.get("/monitors");
-          setMonitors(response?.data || []);
-        } catch (error) {
-          console.error("Error fetching monitors:", error);
-          if (
-            (error instanceof ApiError && error.status === 401) ||
-            (error instanceof Error && error.message.includes("401"))
-          ) {
-            router.push("/auth/login");
-            return;
-          }
-        }
+        await refreshMonitors();
 
         // Get notifications count from the last 24 hours using API
         try {
@@ -95,7 +99,7 @@ export default function DashboardPage() {
     }
 
     loadData();
-  }, [router, supabase]);
+  }, [router, supabase, refreshMonitors]);
 
   if (loading) {
     return (
@@ -228,7 +232,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid gap-4">
                     {activeMonitors.map((monitor) => (
-                      <MonitorCard key={monitor.id} monitor={monitor} />
+                      <MonitorCard
+                        key={monitor.id}
+                        monitor={monitor}
+                        onChanged={refreshMonitors}
+                      />
                     ))}
                   </div>
                 </div>
@@ -250,7 +258,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid gap-4">
                     {inactiveMonitors.map((monitor) => (
-                      <MonitorCard key={monitor.id} monitor={monitor} />
+                      <MonitorCard
+                        key={monitor.id}
+                        monitor={monitor}
+                        onChanged={refreshMonitors}
+                      />
                     ))}
                   </div>
                 </div>
