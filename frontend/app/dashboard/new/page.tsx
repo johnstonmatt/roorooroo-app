@@ -265,7 +265,6 @@ export default function NewMonitorPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="60">Every minute</SelectItem>
                       <SelectItem value="300">Every 5 minutes</SelectItem>
                       <SelectItem value="900">Every 15 minutes</SelectItem>
                       <SelectItem value="1800">Every 30 minutes</SelectItem>

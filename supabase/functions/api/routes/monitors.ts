@@ -113,7 +113,7 @@ monitors.post(
         check_interval: {
           required: true,
           type: "number" as const,
-          min: 60,
+          min: 300,
           max: 86400,
         },
         notification_channels: {

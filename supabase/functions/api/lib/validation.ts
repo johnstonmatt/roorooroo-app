@@ -217,7 +217,7 @@ export const commonSchemas = {
     },
     url: { required: true, type: "url" as const },
     pattern: { required: false, type: "string" as const, maxLength: 500 },
-    interval: { required: true, type: "number" as const, min: 60, max: 86400 },
+    interval: { required: true, type: "number" as const, min: 300, max: 86400 },
     enabled: { required: false, type: "boolean" as const },
   },
 
