@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { api } from "@/lib/api-client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Monitor {
   id: string;
@@ -44,7 +45,7 @@ interface MonitorCardProps {
 export function MonitorCard({ monitor }: MonitorCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
+  const [isQueuing, setIsQueuing] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -82,27 +83,18 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
     }
   };
 
-  const testMonitor = async () => {
-    setIsTesting(true);
+  const queueMonitor = async () => {
+    setIsQueuing(true);
     try {
-      const result = await api.post("/monitors/check", {
-        monitorId: monitor.id,
+      await api.put(`/monitors/${monitor.id}`, {
+        last_status: "pending",
       });
-
-      if (result.success) {
-        alert(
-          `Test completed!\nStatus: ${result.data.status}\nResponse time: ${result.data.responseTime}ms`,
-        );
-      } else {
-        alert(`Test failed: ${result.error}`);
-      }
-
       router.refresh();
     } catch (error) {
-      console.error("Error testing monitor:", error);
-      alert("Test failed: Network error");
+      console.error("Error queueing monitor recheck:", error);
+      alert("Failed to queue recheck");
     } finally {
-      setIsTesting(false);
+      setIsQueuing(false);
     }
   };
 
@@ -181,7 +173,13 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
                 size="sm"
                 className="h-auto p-0 text-orange-600 hover:text-orange-800"
               >
-                <ExternalLink className="h-3 w-3" />
+                <Link
+                  href={monitor.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
               </Button>
             </CardDescription>
           </div>
@@ -189,10 +187,10 @@ export function MonitorCard({ monitor }: MonitorCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={testMonitor}
-              disabled={isTesting}
+              onClick={queueMonitor}
+              disabled={isQueuing}
               className="text-blue-600 hover:text-blue-800"
-              title="Test now"
+              title="Queue recheck"
             >
               <BugPlay className="h-4 w-4" />
             </Button>

@@ -129,7 +129,18 @@ export class NotificationService {
       message,
     });
 
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+    if (!RESEND_API_KEY) {
+      console.error("'RESEND_API_KEY' is not set");
+      return {
+        success: false,
+        channel,
+        error: "Email service not configured",
+      };
+    }
+
+    const resend = new Resend(RESEND_API_KEY);
 
     const response = await resend.emails.send({
       from: "notifications@roorooroo.com",

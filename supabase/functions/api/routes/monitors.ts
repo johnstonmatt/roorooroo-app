@@ -311,6 +311,11 @@ monitors.put(
           max: 86400,
         },
         is_active: { required: false, type: "boolean" as const },
+        last_status: {
+          required: false,
+          type: "string" as const,
+          enum: ["pending"],
+        },
         notification_channels: {
           required: false,
           custom: (value: unknown) => {
@@ -355,6 +360,9 @@ monitors.put(
         updateData.check_interval = body.check_interval;
       }
       if (body.is_active !== undefined) updateData.is_active = body.is_active;
+      if (body.last_status !== undefined) {
+        updateData.last_status = body.last_status;
+      }
       if (body.notification_channels !== undefined) {
         updateData
           .notification_channels = body.notification_channels;
