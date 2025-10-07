@@ -222,7 +222,6 @@ export default function NewMonitorPage() {
                       <SelectItem value="not_contains">
                         Does Not Contain
                       </SelectItem>
-                      <SelectItem value="regex">Regular Expression</SelectItem>
                     </SelectContent>
                   </Select>
                   <div className="flex flex-wrap gap-2 mt-2">

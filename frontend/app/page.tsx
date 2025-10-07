@@ -161,9 +161,8 @@ export default function HomePage() {
             <CardContent>
               <ul className="text-sm text-orange-700 space-y-2">
                 <li>• Text contains</li>
-                <li>• Regular expressions</li>
                 <li>• Absence detection</li>
-                <li>• Case sensitive options</li>
+                <li>• More coming soon!</li>
               </ul>
             </CardContent>
           </Card>
