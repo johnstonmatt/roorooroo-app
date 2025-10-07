@@ -123,7 +123,7 @@ export default function LoginPage() {
                 </Button>
               </div>
               <div className="mt-6 text-center text-sm">
-                <span className="text-orange-600">New to RooRooRoo?</span>
+                <span className="text-orange-600 mr-1">New to RooRooRoo?</span>
                 <Link
                   href="/auth/signup"
                   className="text-orange-700 hover:text-orange-800 font-medium underline underline-offset-4"

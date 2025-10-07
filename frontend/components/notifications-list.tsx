@@ -63,11 +63,11 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
   const getNotificationTitle = (type: string) => {
     switch (type) {
       case "found":
-        return "Pattern Found";
+        return "Pattern Match";
       case "not_found":
-        return "Pattern Lost";
+        return "Pattern Miss";
       case "error":
-        return "Monitor Error";
+        return "Website Error";
       default:
         return "Notification";
     }
@@ -85,6 +85,17 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
         );
       default:
         return null;
+    }
+  };
+
+  const getChannelName = (channel: string) => {
+    switch (channel) {
+      case "email":
+        return "Email";
+      case "sms":
+        return "SMS";
+      default:
+        return "Unknown";
     }
   };
 
@@ -241,7 +252,9 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                   <div className="mt-3 flex items-center gap-4 text-sm text-orange-600">
                     <div className="flex items-center gap-1">
                       {getChannelIcon(notification.channel)}
-                      <span className="capitalize">{notification.channel}</span>
+                      <span className="capitalize">
+                        {getChannelName(notification.channel)}
+                      </span>
                     </div>
 
                     {notification.monitors?.url && (

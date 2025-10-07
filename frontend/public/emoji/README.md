@@ -2,6 +2,8 @@
 
 This directory contains static emoji image assets served by the app.
 
+You must update the script to include emojis you use.
+
 Structure:
 
 - /emoji/twemoji/latest/*.svg (copied from node_modules/twemoji/assets/svg by

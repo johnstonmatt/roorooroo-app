@@ -14,6 +14,8 @@ import https from "https";
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+console.log(`don't forget to add your new emoji to the list in ${__filename}`);
+
 const repoRoot = path.resolve(__dirname, "..");
 const nodeModulesTwemoji = path.join(
   repoRoot,
@@ -38,6 +40,8 @@ const minimalCodes = [
   "1f4f0", // newspaper
   "1f50d", // magnifying glass
   "1f43e", // paw prints 🐾
+  "274c", // red x
+  "26a0", // warning
 ];
 
 function ensureDir(p) {
