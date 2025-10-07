@@ -80,8 +80,8 @@ This project has two motivations:
 This repo deliberately uses an Edge Function for an API rather than a typical
 Supabase architecture that avoids an API altogether. This is mostly because I’m
 on the Edge Functions team and wanted to see how far I could take it, but there
-are benefits, like portability (not relying on frontend cloud APIs) and shipping
-purely static assets to the browser.
+are benefits, like portability (not relying on proprietary frontend cloud APIs)
+by shipping purely static assets to the browser.
 
 ## Repository structure
 
