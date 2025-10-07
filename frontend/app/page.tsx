@@ -64,13 +64,6 @@ export default function HomePage() {
             >
               <Link href="/auth/signup">Start Watching Free</Link>
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-orange-300 text-orange-700 hover:bg-orange-50 bg-transparent"
-            >
-              See How It Works
-            </Button>
           </div>
           <div className="mt-6 flex items-center justify-center gap-2 text-sm text-orange-600">
             <Badge
@@ -242,8 +235,8 @@ export default function HomePage() {
             Ready to Start Watching?
           </h2>
           <p className="text-xl text-orange-700 mb-8">
-            Join thousands of users who trust RooRooRoo to keep watch over their
-            important websites
+            Join 10s of users (optimistically) who trust RooRooRoo to keep watch
+            over their important websites
           </p>
           <Button
             size="lg"
