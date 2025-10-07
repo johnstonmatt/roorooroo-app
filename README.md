@@ -9,6 +9,8 @@
 [![Hono](https://img.shields.io/badge/Hono-4-FF7E33)](https://hono.dev/)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 
+![list of active website monitors including a select.supabase.com monitor looking for the string 2026](/docs/img/dashboard.png)
+
 A full‑stack application composed of a static‑exported
 [Next.js 14](https://nextjs.org/) frontend and a Supabase‑backed API built as
 [Deno](https://deno.com/) Edge Functions using [Hono](https://hono.dev/). It
