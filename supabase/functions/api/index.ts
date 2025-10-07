@@ -17,6 +17,7 @@ import { auth } from "./routes/auth.ts";
 import type { AppVariables } from "./types.ts";
 const api = new Hono<{ Variables: AppVariables }>().basePath("/api");
 const version = Deno.env.get("CURRENT_SHA")?.slice(0, 7) || "v0.0.0";
+const SERVICE = "RooRooRoo API Server";
 
 api.use(logger());
 
@@ -53,7 +54,7 @@ api.get(
   "/status",
   (c) =>
     c.json({
-      service: "RooRooRoo API Server",
+      service: SERVICE,
       version,
       timestamp: new Date().toISOString(),
       uptime: performance.now(),
@@ -76,7 +77,7 @@ api.get(
   "/meta",
   (c) =>
     c.json({
-      message: "Hono API Server",
+      message: SERVICE,
       version,
       documentation: "Visit /status for available endpoints",
       timestamp: new Date().toISOString(),
