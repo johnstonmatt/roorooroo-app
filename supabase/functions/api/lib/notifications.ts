@@ -2,6 +2,15 @@
 import { type SMSMessage, type SMSResult, SMSService } from "./sms-service.ts";
 import { Resend } from "npm:resend@6.1.2";
 
+export type Status = "found" | "lost" | "error" | "pending";
+
+export type NotificationType = Omit<"pending", Status>;
+
+export type NotificationSpec = {
+  initial: boolean;
+  type: NotificationType;
+};
+
 export interface NotificationChannel {
   type: "email" | "sms";
   address: string;
@@ -18,7 +27,8 @@ export interface Monitor {
 
 export interface NotificationPayload {
   monitor: Monitor;
-  type: "pattern_found" | "pattern_lost" | "error";
+  type: NotificationType;
+  initial: boolean;
   contentSnippet?: string;
   errorMessage?: string;
 }

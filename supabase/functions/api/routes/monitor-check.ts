@@ -3,6 +3,7 @@ import { Hono } from "jsr:@hono/hono@4.9.8";
 import type { AppVariables } from "../types.ts";
 import { validateAndThrow } from "../lib/validation.ts";
 import { NotificationService } from "../lib/notifications.ts";
+import type { NotificationSpec, Status } from "../lib/notifications.ts";
 
 const monitorCheck = new Hono<{ Variables: AppVariables }>();
 
@@ -34,9 +35,10 @@ interface Monitor {
 monitorCheck.post(
   "/",
   async (c) => {
-    const supabase = c.get("supabase");
-
+    let success = false;
     try {
+      const supabase = c.get("supabase");
+
       // Parse and validate request body
       const body = await c.req.json();
 
@@ -45,12 +47,13 @@ monitorCheck.post(
         monitor_id: { required: true, type: "string" as const, minLength: 1 },
         user_id: { required: true, type: "string" as const, minLength: 1 },
       };
+
       console.log("REQUEST BODY:");
       console.log(JSON.stringify(body));
 
       if (!supabase) {
         return c.json(
-          { error: "Authorized Supabase client not found", body },
+          { error: "Authorized Supabase client not found", body, success },
           401,
         );
       }
@@ -82,6 +85,7 @@ monitorCheck.post(
         return c.json({
           error: "Monitor not found or access denied",
           details: fetchError?.message,
+          success,
         }, 404);
       }
 
@@ -89,8 +93,11 @@ monitorCheck.post(
         return c.json({
           error: "Monitor is not active",
           message: "Cannot check inactive monitors",
+          success,
         }, 400);
       }
+
+      const lastStatus = monitor.last_status;
 
       // Perform the monitor check
       const checkResult = await performMonitorCheck(monitor as Monitor);
@@ -102,14 +109,18 @@ monitorCheck.post(
         checkResult,
       );
 
+      const lastChecked = new Date().toISOString();
+
       // Update monitor's last_checked and last_status
       await supabase
         .from("monitors")
         .update({
-          last_checked: new Date().toISOString(),
+          last_checked: lastChecked,
           last_status: checkResult.status,
         })
         .eq("id", monitor.id);
+
+      const newStatus = checkResult.status;
 
       console.log(`Check result for monitor ${monitor.id}:`, checkResult);
 
@@ -118,75 +129,69 @@ monitorCheck.post(
       // - Any transition into "found" => notify "pattern_found"
       // - Transition from "found" to "not_found" => notify "pattern_lost"
       // - Initial transition from "pending" to "not_found" => do NOT notify
-      if (
-        checkResult.status !== monitor.last_status &&
-        monitor.notification_channels?.length > 0
-      ) {
-        console.log("Status changed, evaluating notifications...");
 
-        const notificationService = new NotificationService();
-
-        let shouldNotify = false;
-        let notificationType:
-          | "pattern_found"
-          | "pattern_lost"
-          | "error"
-          | null = null;
-
-        const prev = (monitor.last_status || "pending") as
-          | "pending"
-          | "found"
-          | "not_found"
-          | "error";
-        const next = checkResult.status as "found" | "not_found" | "error";
-
-        if (next === "error") {
-          // Notify when entering error state (from any non-error state)
-          if (prev !== "error") {
-            shouldNotify = true;
-            notificationType = "error";
-          }
-        } else if (next === "found") {
-          // Notify when pattern becomes found from any non-found state
-          if (prev !== "found") {
-            shouldNotify = true;
-            notificationType = "pattern_found";
-          }
-        } else if (next === "not_found") {
-          // Only notify loss when transitioning from found to not_found
-          if (prev === "found") {
-            shouldNotify = true;
-            notificationType = "pattern_lost";
-          }
-        }
-
-        if (shouldNotify && notificationType) {
-          try {
-            console.log(`Sending ${notificationType} notification...`);
-            await notificationService.sendNotifications(
-              {
-                monitor: monitor as Monitor,
-                type: notificationType,
-                contentSnippet: checkResult.contentSnippet,
-                errorMessage: checkResult.errorMessage,
-              },
-              monitor.notification_channels,
-            );
-          } catch (notificationError) {
-            console.error("Failed to send notifications:", notificationError);
-            // Don't fail the check if notifications fail
-          }
-        } else {
-          // Skip notifications for non-actionable transitions (e.g., initial not_found)
-          console.log(
-            `Skipping notifications for transition from ${prev} to ${next}`,
-          );
-        }
+      if (!monitor?.notification_channels?.length) {
+        console.warn(
+          "No notification channels configured, skipping notifications.",
+        );
+        return c.json({
+          success,
+          data: {
+            monitorId: monitor.id,
+            status: checkResult.status,
+            responseTime: checkResult.responseTime,
+            didNotify: false,
+          },
+          message:
+            "Monitor check completed, but no notification channels configured",
+          timestamp: new Date().toISOString(),
+        });
       }
 
-      // Return success response
+      console.log(
+        "Status changed and notifications configured, evaluating notifications...",
+      );
+
+      const notificationService = new NotificationService();
+
+      const notificationSpec = getNotificationSpec(
+        lastStatus,
+        newStatus as Omit<"pending", Status>,
+      );
+
+      if (!notificationSpec) {
+        return c.json({
+          success: true,
+          data: {
+            monitorId: monitor.id,
+            status: checkResult.status,
+            responseTime: checkResult.responseTime,
+            contentSnippet: checkResult.contentSnippet,
+            errorMessage: checkResult.errorMessage,
+            statusChanged: false,
+            checkedAt: lastChecked,
+            didNotify: false,
+          },
+          message: "Monitor check completed successfully | no status change",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        await notificationService.sendNotifications({
+          monitor: monitor as Monitor,
+          type: notificationSpec.type,
+          initial: notificationSpec.initial,
+          contentSnippet: checkResult.contentSnippet,
+        }, monitor.notification_channels);
+        success = true;
+      } catch (error) {
+        console.error("Failed to send notifications:", error);
+      }
+
+      console.log("Notification processing complete.");
       return c.json({
-        success: true,
+        success,
         data: {
           monitorId: monitor.id,
           status: checkResult.status,
@@ -200,19 +205,11 @@ monitorCheck.post(
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error("Unexpected error in monitor check:", error);
-
-      // Handle validation errors specifically
-      if (error instanceof Error && error.name === "ValidationError") {
-        return c.json({
-          error: "Validation failed",
-          message: error.message,
-        }, 400);
-      }
-
+      console.error("Error processing monitor check:", error);
       return c.json({
         error: "Internal server error",
-        message: "An unexpected error occurred while checking the monitor",
+        success,
+        details: error instanceof Error ? error.message : String(error),
       }, 500);
     }
   },
@@ -379,6 +376,21 @@ async function logMonitorCheck(
     console.error("Failed to log monitor check:", error);
     // Don't throw here as we don't want logging failures to break the check
   }
+}
+
+function getNotificationSpec(
+  lastStatus: Status,
+  newStatus: Omit<"pending", Status>,
+): NotificationSpec | null {
+  if (lastStatus === "pending") {
+    return { initial: true, type: newStatus };
+  }
+
+  if (newStatus === lastStatus) {
+    return null;
+  }
+
+  return { initial: false, type: newStatus };
 }
 
 export { monitorCheck };
