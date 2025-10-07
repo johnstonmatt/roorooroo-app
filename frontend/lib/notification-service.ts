@@ -20,6 +20,7 @@ export interface NotificationPayload {
   type: "found" | "not_found" | "error";
   contentSnippet?: string;
   errorMessage?: string;
+  initial: boolean;
 }
 
 export interface NotificationResult {
@@ -158,13 +159,20 @@ export class NotificationService {
    * Format email message content
    */
   private formatEmailMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage } = payload;
+    const { monitor, type, contentSnippet, errorMessage, initial } = payload;
 
-    let message = `🐕 RooRooRoo Alert!\n\n`;
+    let message = initial
+      ? `🐕 RooRooRoo Setup Successful!\n\n`
+      : `🐕 RooRooRoo Alert!\n\n`;
+
+    if (initial) {
+      message = `🐕 RooRooRoo Setup Successful!\n\n`;
+    }
 
     switch (type) {
       case "found":
-        message += `Your watcher "${monitor.name}" found a match!\n\n`;
+        message +=
+          `Your watcher "${monitor.name}" found a match for your pattern!\n\n`;
         message += `Website: ${monitor.url}\n`;
         message += `Pattern: "${monitor.pattern}"\n`;
         if (contentSnippet) {
@@ -173,14 +181,16 @@ export class NotificationService {
         break;
 
       case "not_found":
-        message += `Your watcher "${monitor.name}" not_found the pattern!\n\n`;
+        message +=
+          `Your watcher "${monitor.name}" did not find a match for your pattern.\n\n`;
         message += `Website: ${monitor.url}\n`;
         message += `Pattern: "${monitor.pattern}"\n`;
-        message += `\nThe pattern is no longer found on the page.\n`;
+        message += `\nThe pattern was not found on the page.\n`;
         break;
 
       case "error":
-        message += `Your watcher "${monitor.name}" encountered an error!\n\n`;
+        message +=
+          `Your watcher "${monitor.name}" encountered an error loading your website!\n\n`;
         message += `Website: ${monitor.url}\n`;
         if (errorMessage) {
           message += `Error: ${errorMessage}\n`;
@@ -200,24 +210,27 @@ export class NotificationService {
    * Format SMS message content (shorter for SMS limits)
    */
   private formatSMSMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage } = payload;
+    const { monitor, type, contentSnippet, errorMessage, initial } = payload;
 
-    let message = `🐕 RooRooRoo Alert: `;
+    let message = initial
+      ? `🐕 RooRooRoo Setup Successful: `
+      : `🐕 RooRooRoo Alert: `;
 
     switch (type) {
       case "found":
-        message += `"${monitor.name}" found match!`;
+        message += `"${monitor.name}" found a match!`;
         if (contentSnippet && contentSnippet.length < 50) {
           message += ` Found: "${contentSnippet}"`;
         }
         break;
 
       case "not_found":
-        message += `"${monitor.name}" not_found pattern!`;
+        message += `"${monitor.name}" did not find a match for your pattern.`;
         break;
 
       case "error":
-        message += `"${monitor.name}" error!`;
+        message +=
+          `"${monitor.name}" encountered an error loading your website!`;
         if (errorMessage && errorMessage.length < 50) {
           message += ` ${errorMessage}`;
         }
@@ -238,17 +251,17 @@ export class NotificationService {
    * Get email subject line
    */
   private getEmailSubject(payload: NotificationPayload): string {
-    const { monitor, type } = payload;
-
+    const { monitor, type, initial } = payload;
+    const subj = initial ? "Setup Successful" : "Alert";
     switch (type) {
       case "found":
-        return `🐕 RooRooRoo Alert: ${monitor.name} - Pattern Found`;
+        return `🐕 RooRooRoo ${subj}: ${monitor.name} - Pattern Found`;
       case "not_found":
-        return `🐕 RooRooRoo Alert: ${monitor.name} - Pattern Lost`;
+        return `🐕 RooRooRoo ${subj}: ${monitor.name} - Pattern Lost`;
       case "error":
-        return `🐕 RooRooRoo Alert: ${monitor.name} - Error`;
+        return `🐕 RooRooRoo ${subj}: ${monitor.name} - Error`;
       default:
-        return `🐕 RooRooRoo Alert: ${monitor.name}`;
+        return `🐕 RooRooRoo ${subj}: ${monitor.name}`;
     }
   }
 

@@ -196,6 +196,14 @@ export function NotificationChannels({
     }
   };
 
+  // Handle phone Enter key press
+  const handlePhoneKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !disabled) {
+      e.preventDefault();
+      addSmsChannel();
+    }
+  };
+
   // Format phone number for display
   const formatPhoneForDisplay = (phoneNumber: string): string => {
     const validation = validatePhoneNumber(phoneNumber);
@@ -267,6 +275,7 @@ export function NotificationChannels({
                 id="phone-input"
                 value={inputState.phone}
                 onChange={handlePhoneChange}
+                onKeyDown={handlePhoneKeyDown}
                 error={inputState.phoneError}
                 disabled={disabled}
                 placeholder="Enter phone number"
