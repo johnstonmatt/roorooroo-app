@@ -114,16 +114,17 @@ supabase/
 ## Architecture
 
 ```mermaid
-graph TD
-  A[Browser (Next.js static site)] -->|Supabase JS| B[Supabase (Auth, Postgres, Storage, Realtime)]
-  A -->|HTTP| C[Edge Function: api (Hono)]
+flowchart TD
+  A[Browser (Next.js static site)] -- Supabase JS --> B[Supabase (Auth, Postgres, Storage, Realtime)]
+  A -- HTTP --> C[Edge Function: api (Hono)]
   B <--> C
   subgraph Cron
-    D[pg_cron] -->|HTTP POST /api/monitors/check| C
+    direction LR
+    D[pg_cron] -- HTTP POST /api/monitors/check --> C
   end
-  C -->|Resend| E[Email]
-  C -->|Twilio SMS| F[SMS]
-  F -->|Webhook /api/webhooks/sms-status| C
+  C -- Resend --> E[Email]
+  C -- Twilio SMS --> F[SMS]
+  F -- Webhook /api/webhooks/sms-status --> C
 ```
 
 - Frontend (static): Next.js 14 outputs a static site (`output: "export"`)
