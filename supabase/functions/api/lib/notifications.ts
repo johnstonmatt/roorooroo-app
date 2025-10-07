@@ -278,7 +278,7 @@ export class NotificationService {
       case "found":
         return `${subjectPrefix} ${monitor.name} - Pattern Found`;
       case "not_found":
-        return `${subjectPrefix} ${monitor.name} - Pattern Lost`;
+        return `${subjectPrefix} ${monitor.name} - Pattern Not Found`;
       case "error":
         return `${subjectPrefix} ${monitor.name} - Error`;
       default:
@@ -296,7 +296,9 @@ export class NotificationService {
       const supabase = createServiceClient();
 
       const message = channel.type === "email"
-        ? this.formatEmailMessage(payload)
+        ? `Subject: ${this.getEmailSubject(payload)}\n\n${
+          this.formatEmailMessage(payload)
+        }`
         : this.formatSMSMessage(payload);
 
       await supabase.from("notifications").insert({
