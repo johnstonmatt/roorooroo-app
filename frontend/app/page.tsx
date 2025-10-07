@@ -267,14 +267,11 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center gap-6 text-sm text-orange-600">
-              <Link href="/privacy" className="hover:text-orange-800">
-                Privacy
-              </Link>
-              <Link href="/terms" className="hover:text-orange-800">
-                Terms
-              </Link>
-              <Link href="/contact" className="hover:text-orange-800">
-                Contact
+              <Link
+                href="https://github.com/johnstonmatt/roorooroo-app"
+                className="hover:text-orange-800"
+              >
+                GitHub
               </Link>
             </div>
           </div>
