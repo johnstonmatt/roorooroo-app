@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { api } from "@/lib/api-client";
 import { LogOut } from "lucide-react";
 
 interface Props {

@@ -133,13 +133,6 @@ export default function NewMonitorPage() {
 
       router.push("/dashboard");
     } catch (error: unknown) {
-      if (
-        (error instanceof ApiError && error.status === 401) ||
-        (error instanceof Error && error.message.includes("401"))
-      ) {
-        router.push("/auth/login");
-        return;
-      }
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);
