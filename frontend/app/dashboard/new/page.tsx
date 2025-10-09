@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { api, ApiError } from "@/lib/api-client";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,6 +44,7 @@ export default function NewMonitorPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,15 +78,58 @@ export default function NewMonitorPage() {
         address: channel.address.trim(),
       }));
 
-      // Create monitor using the new API endpoint
-      await api.post("/monitors", {
-        name: name.trim(),
-        url: url.trim(),
-        pattern: pattern.trim(),
-        pattern_type: patternType,
-        check_interval: Number.parseInt(checkInterval),
-        notification_channels: channelsForDb,
-      });
+      // Create monitor using Supabase client
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Not authenticated");
+
+      const { data: monitor, error: insertError } = await supabase
+        .from("monitors")
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+          url: url.trim(),
+          pattern: pattern.trim(),
+          pattern_type: patternType,
+          check_interval: Number.parseInt(checkInterval),
+          notification_channels: channelsForDb,
+          is_active: true,
+          last_status: "pending",
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Schedule cron job via RPC
+      try {
+        const jobName = `monitor_check_${monitor.id.replace(/-/g, "_")}`;
+        const intervalSeconds = Number.parseInt(checkInterval);
+        const minutes = Math.floor(intervalSeconds / 60);
+        let cronExpr = "* * * * *";
+        if (minutes <= 1) {
+          cronExpr = "* * * * *";
+        } else if (minutes < 60) {
+          cronExpr = 60 % minutes === 0
+            ? `*/${minutes} * * * *`
+            : "*/5 * * * *";
+        } else {
+          const hours = Math.floor(minutes / 60);
+          cronExpr = hours === 1
+            ? "0 * * * *"
+            : `0 */${Math.min(hours, 12)} * * *`;
+        }
+        await supabase.rpc("create_monitor_cron_job", {
+          job_name: jobName,
+          cron_schedule: cronExpr,
+          monitor_id: monitor.id,
+          user_id: user.id,
+        });
+      } catch (e) {
+        console.warn("Failed to schedule cron job:", e);
+      }
 
       router.push("/dashboard");
     } catch (error: unknown) {

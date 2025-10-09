@@ -18,7 +18,7 @@ import {
   Play,
   Trash2,
 } from "lucide-react";
-import { api } from "@/lib/api-client";
+import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -45,13 +45,16 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isQueuing, setIsQueuing] = useState(false);
+  const supabase = createClient();
 
   const toggleActive = async () => {
     setIsLoading(true);
     try {
-      await api.put(`/monitors/${monitor.id}`, {
-        is_active: !monitor.is_active,
-      });
+      const { error } = await supabase
+        .from("monitors")
+        .update({ is_active: !monitor.is_active })
+        .eq("id", monitor.id);
+      if (error) throw error;
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error toggling monitor:", error);
@@ -71,7 +74,16 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
 
     setIsDeleting(true);
     try {
-      await api.delete(`/monitors/${monitor.id}`);
+      const { error } = await supabase
+        .from("monitors")
+        .delete()
+        .eq("id", monitor.id);
+      if (error) throw error;
+      // Best-effort: unschedule associated cron job
+      try {
+        const jobName = `monitor_check_${monitor.id.replace(/-/g, "_")}`;
+        await supabase.rpc("delete_monitor_cron_job", { job_name: jobName });
+      } catch {}
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error deleting monitor:", error);
@@ -83,9 +95,11 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   const queueMonitor = async () => {
     setIsQueuing(true);
     try {
-      await api.put(`/monitors/${monitor.id}`, {
-        last_status: "pending",
-      });
+      const { error } = await supabase
+        .from("monitors")
+        .update({ last_status: "pending" })
+        .eq("id", monitor.id);
+      if (error) throw error;
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error queueing monitor recheck:", error);

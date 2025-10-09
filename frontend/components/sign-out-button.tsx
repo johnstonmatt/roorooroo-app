@@ -23,10 +23,6 @@ export function SignOutButton({ className, size = "default" }: Props) {
     try {
       // Clear the browser session first
       await supabase.auth.signOut();
-      // Best-effort: notify API (no-op server acknowledgment)
-      try {
-        await api.post("/auth/logout");
-      } catch {}
       router.push("/auth/login");
     } catch {
       // Even if signOut throws, push to login so the user isn&#39;t stuck

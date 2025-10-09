@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api, ApiError } from "@/lib/api-client";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -46,18 +46,18 @@ export default function SignupPage() {
     }
 
     try {
-      await api.post("/auth/signup", {
+      const supabase = createClient();
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        displayName,
+        options: {
+          data: { display_name: displayName || undefined },
+        },
       });
+      if (signUpError) throw signUpError;
       router.push("/auth/signup-success");
     } catch (error: unknown) {
-      if (error instanceof ApiError) {
-        setError(error.message || "Failed to sign up");
-      } else {
-        setError(error instanceof Error ? error.message : "An error occurred");
-      }
+      setError(error instanceof Error ? error.message : "Failed to sign up");
     } finally {
       setIsLoading(false);
     }
