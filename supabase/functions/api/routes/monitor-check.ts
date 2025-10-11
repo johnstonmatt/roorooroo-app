@@ -28,7 +28,7 @@ interface Monitor {
 }
 
 /**
- * POST /api/monitors/check
+ * POST /api/check-endpoint
  * invoked by cron job, not user
  * Execute a monitor check for a specific monitor
  */

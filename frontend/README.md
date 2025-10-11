@@ -12,6 +12,18 @@ system based on Radix UI and shadcn-like primitives.
 - **Radix UI** primitives and composable UI components in `components/ui`
 - **TypeScript** end-to-end
 
+## Data access policy
+
+- All database reads/writes/RPC calls must use the Supabase client from the
+  frontend (see `lib/supabase`).
+- Do not proxy database operations through Supabase Edge Functions.
+- Edge Functions exist only for server-only tasks that the Supabase client
+  cannot perform:
+  - `POST /functions/v1/api/check-endpoint` — invoked by `pg_cron` to execute
+    monitor checks.
+  - `GET /functions/v1/api/status` — a lightweight status/health endpoint (no
+    database CRUD).
+
 ## Getting Started
 
 Prereqs:

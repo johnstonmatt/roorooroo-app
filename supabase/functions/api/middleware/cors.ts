@@ -71,13 +71,3 @@ export const corsMiddleware = cors({
   credentials: true,
   maxAge: 86400, // 24 hours
 });
-
-/**
- * Simple CORS middleware for webhooks that don't need credentials
- */
-export const webhookCorsMiddleware = cors({
-  origin: "*",
-  allowMethods: ["GET", "POST", "OPTIONS"],
-  allowHeaders: ["Content-Type", "X-Twilio-Signature"],
-  credentials: false,
-});
