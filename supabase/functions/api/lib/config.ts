@@ -66,37 +66,6 @@ export const config: Config = {
   },
 };
 
-export function validateConfig(): void {
-  const requiredKeys = [
-    "SUPABASE_URL",
-    "SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "TWILIO_ACCOUNT_SID",
-    "TWILIO_AUTH_TOKEN",
-    "TWILIO_PHONE_NUMBER",
-  ];
-
-  const missing = requiredKeys.filter((key) => !Deno.env.get(key));
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}`,
-    );
-  }
-}
-
-export function isDevelopment(): boolean {
-  return config.app.environment === "development";
-}
-
-export function isProduction(): boolean {
-  return config.app.environment === "production";
-}
-
-export function getLogLevel(): string {
-  return config.app.logLevel;
-}
-
 export const logger = {
   debug: (message: string, ...args: unknown[]) => {
     if (["debug"].includes(config.app.logLevel)) {
