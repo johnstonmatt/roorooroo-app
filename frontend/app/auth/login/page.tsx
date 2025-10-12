@@ -4,7 +4,6 @@ import type React from "react";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { api, ApiError } from "@/lib/api-client";
 import {
   Card,
   CardContent,
@@ -31,31 +30,18 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // Call the Supabase Edge Function to authenticate
-      const response = await api.post("/auth/login", { email, password });
-
-      // The function returns tokens; set them on the browser client
+      // Sign in directly with Supabase Auth
       const supabase = createClient();
-      const { access_token, refresh_token } = response || {};
-
-      if (!access_token || !refresh_token) {
-        throw new Error("Login failed: missing tokens");
-      }
-
-      const { error: setSessionError } = await supabase.auth.setSession({
-        access_token,
-        refresh_token,
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-
-      if (setSessionError) throw setSessionError;
-
+      if (signInError) throw signInError;
       router.push("/dashboard");
     } catch (error: unknown) {
-      if (error instanceof ApiError) {
-        setError(error.message || "Invalid email or password");
-      } else {
-        setError(error instanceof Error ? error.message : "An error occurred");
-      }
+      setError(
+        error instanceof Error ? error.message : "Invalid email or password",
+      );
     } finally {
       setIsLoading(false);
     }

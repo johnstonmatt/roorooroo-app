@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/components/sign-out-button";
 import Link from "next/link";
@@ -45,19 +44,30 @@ export default function NotificationsPage() {
           return;
         }
 
-        // Get user's notifications using the API endpoint
+        // Get user's notifications using Supabase client
         try {
-          const response = await api.get("/notifications");
-          setNotifications(response?.data || []);
+          const { data, error: notifError } = await supabase
+            .from("notification_history")
+            .select(
+              "id, monitor_id, user_id, type, channel, message, status, created_at, sent_at",
+            )
+            .order("created_at", { ascending: false });
+          if (notifError) throw notifError;
+          // Map to expected shape
+          setNotifications(
+            (data || []).map((n) => ({
+              id: n.id,
+              type: n.type,
+              channel: n.channel,
+              message: n.message,
+              status: n.status,
+              error_message: undefined,
+              sent_at: n.sent_at || n.created_at,
+              monitors: undefined,
+            })),
+          );
         } catch (error) {
-          console.error("Error fetching notifications:", error);
-          if (
-            (error instanceof ApiError && error.status === 401) ||
-            (error instanceof Error && error.message.includes("401"))
-          ) {
-            router.push("/auth/login");
-            return;
-          }
+          console.error("Error fetching notifications:");
         }
       } catch (error) {
         console.error("Error loading notifications:", error);

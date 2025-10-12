@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,19 +37,20 @@ export default function DashboardPage() {
 
   const refreshMonitors = useCallback(async () => {
     try {
-      const response = await api.get("/monitors");
-      setMonitors(response?.data || []);
+      const { data, error } = await supabase
+        .from("monitors")
+        .select(
+          "id, user_id, name, url, is_active, created_at, last_checked, last_status, pattern, pattern_type, check_interval, notification_channels",
+        )
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setMonitors(data || []);
     } catch (error) {
       console.error("Error fetching monitors:", error);
-      if (
-        (error instanceof ApiError && error.status === 401) ||
-        (error instanceof Error && error.message.includes("401"))
-      ) {
-        router.push("/auth/login");
-        return;
-      }
+      router.push("/auth/login");
+      return;
     }
-  }, [router]);
+  }, [router, supabase]);
 
   useEffect(() => {
     async function loadData() {
@@ -73,22 +73,22 @@ export default function DashboardPage() {
           .eq("id", user.id).single();
         setProfile(profile);
 
-        // Get user's monitors using the new API endpoint
+        // Get user's monitors using Supabase client
         await refreshMonitors();
 
-        // Get notifications count from the last 24 hours using API
+        // Get notifications count from the last 24 hours using Supabase client
         try {
-          const response = await api.get("/notifications?since=24h");
-          setTodayNotificationCount(response?.data?.length || 0);
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+            .toISOString();
+          const { data: notifications, error: notifError } = await supabase
+            .from("notifications")
+            .select("id")
+            .gte("created_at", since)
+            .eq("user_id", user.id);
+          if (notifError) throw notifError;
+          setTodayNotificationCount(notifications?.length || 0);
         } catch (error) {
           console.error("Error fetching notifications count:", error);
-          if (
-            (error instanceof ApiError && error.status === 401) ||
-            (error instanceof Error && error.message.includes("401"))
-          ) {
-            router.push("/auth/login");
-            return;
-          }
           setTodayNotificationCount(0);
         }
       } catch (error) {
