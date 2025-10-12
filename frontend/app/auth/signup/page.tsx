@@ -17,6 +17,24 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+// Email allowlist configuration from environment variables
+const ALLOWED_EMAILS = (process.env.NEXT_PUBLIC_ALLOWED_SIGNUP_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim())
+  .filter(Boolean);
+const ALLOWED_DOMAIN = process.env.NEXT_PUBLIC_ALLOWED_SIGNUP_DOMAIN ||
+  "@supabase.io";
+
+// Build HTML5 pattern for email input validation
+// Escape dots for regex and create pattern for both allowed emails and domain
+const escapedEmails = ALLOWED_EMAILS.map((e) => e.replace(/\./g, "\\.")).join(
+  "|",
+);
+const escapedDomain = ALLOWED_DOMAIN.replace(/\./g, "\\.");
+const EMAIL_PATTERN = escapedEmails
+  ? `^(${escapedEmails}|[^\\s@]+${escapedDomain})$`
+  : `^[^\\s@]+${escapedDomain}$`;
+
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,16 +49,18 @@ export default function SignupPage() {
     setIsLoading(true);
     setError(null);
 
-    const allowedDomain = "@supabase.io";
-
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
-    if (!email.toLowerCase().endsWith(allowedDomain)) {
-      setError("Only @supabase.io email addresses are allowed.");
+    const emailLower = email.toLowerCase();
+    const isAllowedEmail = ALLOWED_EMAILS.includes(emailLower);
+    const isAllowedDomain = emailLower.endsWith(ALLOWED_DOMAIN);
+
+    if (!isAllowedEmail && !isAllowedDomain) {
+      setError(`Only ${ALLOWED_DOMAIN} email addresses are allowed.`);
       setIsLoading(false);
       return;
     }
@@ -109,8 +129,8 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="border-orange-200 focus:border-orange-400"
-                    pattern="^[^\s@]+@supabase\.io$"
-                    title="Email must be a @supabase.io address"
+                    pattern={EMAIL_PATTERN}
+                    title="Email must be a @supabase.io address or an approved email"
                   />
                 </div>
                 <div className="grid gap-2">
