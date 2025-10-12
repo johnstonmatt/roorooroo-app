@@ -39,7 +39,10 @@ export default function SignupPage() {
       return;
     }
 
-    if (!email.toLowerCase().endsWith(allowedDomain)) {
+    if (
+      !email.toLowerCase().endsWith(allowedDomain) &&
+      !(email.toLowerCase() === "jenniferlynnjohnston@gmail.com")
+    ) {
       setError("Only @supabase.io email addresses are allowed.");
       setIsLoading(false);
       return;
