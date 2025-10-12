@@ -68,12 +68,17 @@ auth.post("/signup", async (c) => {
           type: "email",
           custom: (value: unknown) => {
             if (typeof value !== "string") return "Email is invalid";
-            if (value.toLowerCase() === "johnstonjenniferlynn@gmail.com") {
-              return true;
-            }
-            return value.toLowerCase().endsWith("@supabase.io")
+            const emailLower = value.toLowerCase();
+            const isAllowedEmail = config.auth.allowedEmails.includes(
+              emailLower,
+            );
+            const isAllowedDomain = emailLower.endsWith(
+              config.auth.allowedDomain,
+            );
+
+            return isAllowedEmail || isAllowedDomain
               ? true
-              : "Email must be a @supabase.io address";
+              : `Email must be a ${config.auth.allowedDomain} address`;
           },
         },
         password: { required: true, type: "string", minLength: 6 },

@@ -19,6 +19,10 @@ interface Config {
     url: string;
     productionUrl?: string;
   };
+  auth: {
+    allowedEmails: string[];
+    allowedDomain: string;
+  };
   app: {
     environment: "development" | "production";
     logLevel: "debug" | "info" | "warn" | "error";
@@ -52,6 +56,11 @@ export const config: Config = {
   frontend: {
     url: getOptionalEnv("FRONTEND_URL", "http://localhost:3000"),
     productionUrl: Deno.env.get("PRODUCTION_FRONTEND_URL"),
+  },
+  auth: {
+    allowedEmails: getOptionalEnv("ALLOWED_SIGNUP_EMAILS", "").split(",")
+      .filter(Boolean),
+    allowedDomain: getOptionalEnv("ALLOWED_SIGNUP_DOMAIN", "@supabase.io"),
   },
   app: {
     environment:
