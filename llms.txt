@@ -1,0 +1,91 @@
+# RooRooRoo
+
+> A full-stack website monitoring application built with Next.js 14 (static export) and Supabase. Monitors websites for content changes and sends email/SMS notifications. Uses Supabase Edge Functions (Deno + Hono) for server-side checks, with all frontend database access via Supabase JS client under Row Level Security. Scheduled via pg_cron.
+
+This project demonstrates a minimal Supabase server surface area architecture: the frontend handles all database operations directly via the Supabase client with RLS, while Edge Functions are reserved exclusively for server-only tasks (executing monitor checks and sending notifications).
+
+**Tech Stack**: Next.js 14, React 18, Tailwind CSS v4, TypeScript, Supabase (Postgres + Auth + Edge Functions), Deno 2, Hono 4, Resend (email), Twilio (SMS)
+
+**Key Constraint**: Users must have a @supabase.io email address
+
+## Core Documentation
+
+[CLAUDE.md](/CLAUDE.md): Architecture overview, common commands, development patterns, and deployment notes
+
+[README.md](/README.md): Project motivation, limitations, repository structure, environment variables, and security considerations
+
+## Frontend
+
+[Frontend Package Config](/frontend/package.json): Dependencies and npm scripts for the Next.js application
+
+[Next.js Config](/frontend/next.config.mjs): Static export configuration with trailing slashes
+
+[Supabase Client](/frontend/lib/supabase/client.ts): Browser-side Supabase client singleton using @supabase/ssr
+
+[Dashboard Page](/frontend/app/dashboard/page.tsx): Main monitor list view
+
+[New Monitor Page](/frontend/app/dashboard/new/page.tsx): Monitor creation form
+
+[Notifications Page](/frontend/app/dashboard/notifications/page.tsx): Notification history view
+
+## Backend (Edge Functions)
+
+[API Entry Point](/supabase/functions/api/index.ts): Hono application with CORS, error handling, and route registration
+
+[Monitor Check Route](/supabase/functions/api/routes/monitor-check.ts): POST /check-endpoint handler that fetches URLs, checks patterns, logs results, and triggers notifications
+
+[Notification Service](/supabase/functions/api/lib/notifications.ts): Email (Resend) and SMS (Twilio) notification implementation
+
+[CORS Middleware](/supabase/functions/api/middleware/cors.ts): Configures allowed origins from environment variables
+
+[Cron Auth Middleware](/supabase/functions/api/middleware/cron.ts): Validates X-Cron-Secret header or service role credentials
+
+## Database
+
+[Core Schema Migration](/supabase/migrations/20240101000000_create_tables.sql): Creates profiles, monitors, monitor_logs, notifications tables with RLS policies
+
+[Cron Functions Migration](/supabase/migrations/20240101000004_create_cron_functions.sql): pg_cron helpers for scheduling monitor checks, including Vault integration for secrets
+
+[Supabase Config](/supabase/config.toml): Local development configuration for database, auth, storage, and edge runtime
+
+## CI/CD
+
+[Function Deploy Workflow](/.github/workflows/fns-push.yml): Deploys Edge Functions to Supabase on push to main branch
+
+## Development Tasks
+
+[Root Tasks](/deno.json): Deno task definitions for development, building, linting, and database operations
+
+## Optional
+
+### Pattern Matching
+
+The monitor check system supports three pattern types:
+- `contains`: Case-insensitive substring match with context snippets
+- `not_contains`: Inverse match (content must NOT contain pattern)
+- `regex`: Regular expression match (case-insensitive)
+
+Pattern matching implementation: `/supabase/functions/api/routes/monitor-check.ts:283`
+
+### Monitor Check Flow
+
+1. User creates monitor via frontend → direct Supabase insert
+2. Frontend calls `create_monitor_cron_job()` database function
+3. pg_cron schedules HTTP POST to `/functions/v1/api/check-endpoint`
+4. Edge Function fetches URL, validates pattern, logs to `monitor_logs`, updates monitor status
+5. If status changes, sends notifications via configured channels
+6. Frontend displays results via Supabase queries or Realtime subscriptions
+
+### Authentication Architecture
+
+- **Frontend**: Supabase Auth (email/password), authenticated users access own data via RLS
+- **Edge Function**: Cron requests authenticated via `X-Cron-Secret` header or service role key
+- **Database**: All tables have RLS policies scoping access to `auth.uid()`
+- **Secrets**: Stored in Supabase Vault (`cron/secret`, `supabase/anon_key`, `supabase/service_role_key`) with fallback to database settings
+
+### Limitations
+
+- Content must exist in raw HTML (no JavaScript-rendered content detection)
+- Monitor checks timeout after 30 seconds
+- Does not respect robots.txt directives
+- Email restriction enforced at application level
