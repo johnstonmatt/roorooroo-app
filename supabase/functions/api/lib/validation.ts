@@ -3,7 +3,7 @@ import { ValidationError } from "../middleware/error.ts";
 /**
  * Validation schema types
  */
-export interface ValidationSchema {
+interface ValidationSchema {
   [key: string]: {
     required?: boolean;
     type?: "string" | "number" | "boolean" | "email" | "uuid" | "url" | "phone";
@@ -17,7 +17,7 @@ export interface ValidationSchema {
   };
 }
 
-export interface ValidationResult {
+interface ValidationResult {
   valid: boolean;
   errors: Array<{
     field: string;
@@ -28,7 +28,7 @@ export interface ValidationResult {
 /**
  * Validate data against a schema
  */
-export function validateRequest(
+function validateRequest(
   schema: ValidationSchema,
   data: Record<string, unknown>,
 ): ValidationResult {

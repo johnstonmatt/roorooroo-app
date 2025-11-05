@@ -7,34 +7,6 @@ export class ValidationError extends Error {
   }
 }
 
-export class AuthenticationError extends Error {
-  constructor(message: string = "Authentication required") {
-    super(message);
-    this.name = "AuthenticationError";
-  }
-}
-
-export class AuthorizationError extends Error {
-  constructor(message: string = "Insufficient permissions") {
-    super(message);
-    this.name = "AuthorizationError";
-  }
-}
-
-export class NotFoundError extends Error {
-  constructor(message: string = "Resource not found") {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
-
-export class RateLimitError extends Error {
-  constructor(message: string = "Rate limit exceeded") {
-    super(message);
-    this.name = "RateLimitError";
-  }
-}
-
 export function errorHandler(error: Error, c: Context) {
   console.error("API Error:", {
     name: error.name,
@@ -53,30 +25,6 @@ export function errorHandler(error: Error, c: Context) {
         message: error.message,
         field: (error as ValidationError).field,
       }, 400);
-
-    case "AuthenticationError":
-      return c.json({
-        error: "Authentication required",
-        message: error.message,
-      }, 401);
-
-    case "AuthorizationError":
-      return c.json({
-        error: "Insufficient permissions",
-        message: error.message,
-      }, 403);
-
-    case "NotFoundError":
-      return c.json({
-        error: "Not found",
-        message: error.message,
-      }, 404);
-
-    case "RateLimitError":
-      return c.json({
-        error: "Rate limit exceeded",
-        message: error.message,
-      }, 429);
 
     case "PostgrestError":
       return c.json({

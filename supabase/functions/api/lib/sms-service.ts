@@ -13,13 +13,6 @@ export interface SMSResult {
   error?: string;
 }
 
-export interface SMSDeliveryStatus {
-  messageId: string;
-  status: "queued" | "sent" | "delivered" | "failed" | "undelivered";
-  errorCode?: string;
-  errorMessage?: string;
-}
-
 export class SMSService {
   private readonly RETRY_ATTEMPTS = 3;
   private readonly RETRY_DELAYS = [1000, 4000, 16000];
@@ -40,35 +33,6 @@ export class SMSService {
         error: error instanceof Error
           ? error.message
           : "Unknown error occurred",
-      };
-    }
-  }
-
-  async validateDelivery(messageId: string): Promise<SMSDeliveryStatus> {
-    try {
-      const response = await this.makeTwilioRequest(
-        `Messages/${messageId}`,
-        "GET",
-      );
-
-      if (!response.ok) {
-        throw new Error(`Twilio API error: ${response.status}`);
-      }
-
-      const message = await response.json();
-
-      return {
-        messageId,
-        status: message.status as SMSDeliveryStatus["status"],
-        errorCode: message.error_code?.toString(),
-        errorMessage: message.error_message || undefined,
-      };
-    } catch (error) {
-      logger.error("Error validating SMS delivery:", error);
-      return {
-        messageId,
-        status: "failed",
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
