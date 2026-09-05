@@ -1,6 +1,6 @@
 # roorooroo-app
 
-A Next.js 14 app using React 18, Tailwind CSS v4, and Supabase. This repo powers
+A Next.js 16 app using React 19, Tailwind CSS v4, and Supabase. This repo powers
 the Roorooroo application with authentication, dashboards, and a component
 system based on Radix UI and shadcn-like primitives.
 

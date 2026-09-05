@@ -10,21 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Bell, Plus } from "lucide-react";
-import { MonitorCard } from "@/components/monitor-card";
+import { type Monitor, MonitorCard } from "@/components/monitor-card";
 import type { User } from "@supabase/supabase-js";
 
 interface Profile {
   id: string;
   display_name: string | null;
-}
-
-interface Monitor {
-  id: string;
-  user_id: string;
-  name: string;
-  url: string;
-  is_active: boolean;
-  created_at: string;
 }
 
 export default function DashboardPage() {

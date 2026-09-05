@@ -100,7 +100,6 @@ async function ensureMinimalSet() {
     const filePath = path.join(destDir, `${code}.svg`);
     if (fs.existsSync(filePath)) continue;
     const urlSvg = `${baseCdn}/${code}.svg`;
-    // eslint-disable-next-line no-await-in-loop
     await download(urlSvg, filePath);
   }
 }

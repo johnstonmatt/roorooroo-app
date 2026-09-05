@@ -44,6 +44,11 @@ export default function ResetPasswordPage() {
       query.get("error_description") ?? hash.get("error") ??
       query.get("error");
     if (urlError) {
+      // Reading the recovery token out of the URL is an external-system read,
+      // and it can only happen on the client -- a lazy state initialiser would
+      // run during prerender and desync on hydration. The cascading render the
+      // rule guards against is a one-off here, on an error path.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus("invalid");
       setError(urlError.replace(/\+/g, " "));
       return;

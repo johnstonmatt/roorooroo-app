@@ -35,5 +35,11 @@
   },
   "workspace": [
     "./supabase/functions"
-  ]
+  ],
+  "fmt": {
+    "exclude": [
+      "frontend/pnpm-lock.yaml",
+      "frontend/pnpm-workspace.yaml"
+    ]
+  }
 }

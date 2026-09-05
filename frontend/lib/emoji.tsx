@@ -105,7 +105,7 @@ export function EmojiText({ text, className, ext = ".svg" }: EmojiTextProps) {
   let lastIndex = 0;
 
   entities.forEach((entity, idx) => {
-    const [start, end] = entity.indices as [number, number];
+    const [start, end] = entity.indices;
     if (start > lastIndex) {
       nodes.push(text.slice(lastIndex, start));
     }

@@ -26,7 +26,7 @@ import { monitorCronExpression, monitorJobName } from "@/lib/monitor-schedule";
 import { useState } from "react";
 import Link from "next/link";
 
-interface Monitor {
+export interface Monitor {
   id: string;
   user_id: string;
   name: string;

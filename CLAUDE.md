@@ -6,7 +6,7 @@ code in this repository.
 ## Project Overview
 
 A full-stack website monitoring application that watches websites for content
-changes and sends notifications. Built with Next.js 14 (static export) on the
+changes and sends notifications. Built with Next.js 16 (static export) on the
 frontend and Supabase Edge Functions (Deno + `@supabase/server`) for server-side
 monitor checks. All database access from the frontend uses the Supabase JS
 client with Row Level Security (RLS). Scheduled checks run via `pg_cron` calling
@@ -82,7 +82,7 @@ deno task fns:deploy
 ### Frontend Architecture
 
 - **Location**: `frontend/`
-- **Framework**: Next.js 14 with `output: "export"` for static site generation
+- **Framework**: Next.js 16 with `output: "export"` for static site generation
 - **Styling**: Tailwind CSS v4 with Radix UI primitives
 - **Data Access**: All CRUD operations use Supabase client from browser
   (`frontend/lib/supabase/client.ts`)
