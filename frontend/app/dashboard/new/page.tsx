@@ -3,6 +3,7 @@
 import React from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { monitorCronExpression, monitorJobName } from "@/lib/monitor-schedule";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -105,25 +106,11 @@ export default function NewMonitorPage() {
 
       // Schedule cron job via RPC
       try {
-        const jobName = `monitor_check_${monitor.id.replace(/-/g, "_")}`;
+        const jobName = monitorJobName(monitor.id);
         const intervalSeconds = Number.parseInt(checkInterval);
-        const minutes = Math.floor(intervalSeconds / 60);
-        let cronExpr = "* * * * *";
-        if (minutes <= 1) {
-          cronExpr = "* * * * *";
-        } else if (minutes < 60) {
-          cronExpr = 60 % minutes === 0
-            ? `*/${minutes} * * * *`
-            : "*/5 * * * *";
-        } else {
-          const hours = Math.floor(minutes / 60);
-          cronExpr = hours === 1
-            ? "0 * * * *"
-            : `0 */${Math.min(hours, 12)} * * *`;
-        }
         await supabase.rpc("create_monitor_cron_job", {
           job_name: jobName,
-          cron_schedule: cronExpr,
+          cron_schedule: monitorCronExpression(intervalSeconds),
           monitor_id: monitor.id,
           user_id: user.id,
         });

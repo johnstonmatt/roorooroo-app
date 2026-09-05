@@ -10,6 +10,13 @@ const monitorCheck = new Hono<{ Variables: AppVariables }>();
 interface MonitorCheckRequest {
   monitor_id: string;
   user_id: string;
+  /**
+   * Send a notification even when the status has not changed. Used by the
+   * dashboard's debug button to exercise the notification path on demand.
+   * Only honoured for user-authenticated callers, so a malformed cron payload
+   * cannot turn every scheduled check into an alert.
+   */
+  force?: boolean;
 }
 
 interface Monitor {
@@ -42,10 +49,19 @@ monitorCheck.post(
       // Parse and validate request body
       const body = await c.req.json();
 
-      // Define validation schema for monitor check request
+      // Set when the caller authenticated as an end user rather than as cron
+      // or service role.
+      const authUserId = c.get("authUserId");
+
+      // Define validation schema for monitor check request. A user-scoped
+      // caller does not supply user_id -- it comes from their verified token.
       const checkSchema = {
         monitor_id: { required: true, type: "string" as const, minLength: 1 },
-        user_id: { required: true, type: "string" as const, minLength: 1 },
+        user_id: {
+          required: !authUserId,
+          type: "string" as const,
+          minLength: 1,
+        },
       };
 
       if (!supabase) {
@@ -57,7 +73,13 @@ monitorCheck.post(
 
       validateAndThrow(checkSchema, body);
 
-      const { monitor_id, user_id } = body as MonitorCheckRequest;
+      const { monitor_id, user_id: bodyUserId, force } =
+        body as MonitorCheckRequest;
+
+      // The verified subject always wins. Without this, a signed-in user could
+      // check (and trigger notifications for) someone else's monitor by
+      // putting another id in the body.
+      const user_id = authUserId ?? bodyUserId;
 
       // Fetch the monitor from database
       const { data: monitor, error: fetchError } = await supabase
@@ -144,6 +166,8 @@ monitorCheck.post(
       const notificationSpec = getNotificationSpec(
         lastStatus,
         newStatus as Omit<"pending", Status>,
+        // Only a verified end user may force a notification.
+        Boolean(force) && Boolean(authUserId),
       );
 
       if (!notificationSpec) {
@@ -173,7 +197,7 @@ monitorCheck.post(
         await notificationService.sendNotifications({
           monitor: monitor as Monitor,
           type: notificationSpec.type,
-          initial: notificationSpec.initial,
+          reason: notificationSpec.reason,
           contentSnippet: checkResult.contentSnippet,
         }, monitor.notification_channels);
         success = true;
@@ -191,6 +215,9 @@ monitorCheck.post(
           errorMessage: checkResult.errorMessage,
           statusChanged: !!notificationSpec,
           checkedAt: lastChecked,
+          // The other return paths all report didNotify; without it here the
+          // one path that actually sends is the only one a caller cannot read.
+          didNotify: success,
         },
         message: "Monitor check completed successfully",
         timestamp: new Date().toISOString(),
@@ -372,16 +399,23 @@ async function logMonitorCheck(
 function getNotificationSpec(
   lastStatus: Status,
   newStatus: Omit<"pending", Status>,
+  force = false,
 ): NotificationSpec | null {
+  // A forced run reports honestly as "forced" rather than borrowing the
+  // "initial" wording, which would claim to be a setup confirmation.
+  if (force) {
+    return { reason: "forced", type: newStatus };
+  }
+
   if (lastStatus === "pending") {
-    return { initial: true, type: newStatus };
+    return { reason: "initial", type: newStatus };
   }
 
   if (newStatus === lastStatus) {
     return null;
   }
 
-  return { initial: false, type: newStatus };
+  return { reason: "changed", type: newStatus };
 }
 
 export { monitorCheck };

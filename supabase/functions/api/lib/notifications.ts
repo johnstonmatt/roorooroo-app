@@ -6,10 +6,42 @@ export type Status = "found" | "not_found" | "error" | "pending";
 
 export type NotificationType = Omit<"pending", Status>;
 
+/**
+ * Why a notification is being sent.
+ * - "initial": first result for a monitor that had never been checked
+ * - "changed": the status differs from the previous check
+ * - "forced":  a manual run asked for a notification regardless of change,
+ *              used by the debug button to exercise this path on demand
+ */
+export type NotifyReason = "initial" | "changed" | "forced";
+
 export type NotificationSpec = {
-  initial: boolean;
+  reason: NotifyReason;
   type: NotificationType;
 };
+
+/** Opening line, so a forced test is never mislabelled as setup. */
+function headline(reason: NotifyReason): string {
+  switch (reason) {
+    case "initial":
+      return "🐕 RooRooRoo Setup Successful!";
+    case "forced":
+      return "🐕 RooRooRoo Test Notification";
+    default:
+      return "🐕 RooRooRoo Alert!";
+  }
+}
+
+function subjectPrefixFor(reason: NotifyReason): string {
+  switch (reason) {
+    case "initial":
+      return "🐕 RooRooRoo Setup:";
+    case "forced":
+      return "🐕 RooRooRoo Test:";
+    default:
+      return "🐕 RooRooRoo Alert:";
+  }
+}
 
 export interface NotificationChannel {
   type: "email" | "sms";
@@ -28,7 +60,7 @@ export interface Monitor {
 export interface NotificationPayload {
   monitor: Monitor;
   type: NotificationType;
-  initial: boolean;
+  reason: NotifyReason;
   contentSnippet?: string;
   errorMessage?: string;
 }
@@ -189,11 +221,9 @@ export class NotificationService {
   }
 
   private formatEmailMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage, initial } = payload;
+    const { monitor, type, contentSnippet, errorMessage, reason } = payload;
 
-    let message = initial
-      ? `🐕 RooRooRoo Setup Successful!\n\n`
-      : `🐕 RooRooRoo Alert!\n\n`;
+    let message = `${headline(reason)}\n\n`;
 
     switch (type) {
       case "found":
@@ -232,11 +262,9 @@ export class NotificationService {
   }
 
   private formatSMSMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage, initial } = payload;
+    const { monitor, type, contentSnippet, errorMessage, reason } = payload;
 
-    let message = initial
-      ? `🐕 RooRooRoo Setup Successful: `
-      : `🐕 RooRooRoo Alert: `;
+    let message = `${headline(reason)}\n\n`;
 
     switch (type) {
       case "found":
@@ -268,11 +296,9 @@ export class NotificationService {
   }
 
   private getEmailSubject(payload: NotificationPayload): string {
-    const { monitor, type, initial } = payload;
+    const { monitor, type, reason } = payload;
 
-    const subjectPrefix = initial
-      ? "🐕 RooRooRoo Setup:"
-      : "🐕 RooRooRoo Alert:";
+    const subjectPrefix = subjectPrefixFor(reason);
 
     switch (type) {
       case "found":

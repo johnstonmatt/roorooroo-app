@@ -1,0 +1,111 @@
+name: Preview environment
+
+# Links the two halves of a PR preview: the Supabase preview branch (created by
+# the Supabase GitHub integration) and the StackBlitz pr.new workspace, which
+# runs in the browser and so cannot read repository secrets.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    # This repo is public. `pull_request` deliberately withholds secrets from
+    # fork PRs, and Supabase only creates preview branches for branches that
+    # live in this repo, so there is nothing to report for a fork.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Resolve the Supabase preview branch
+        id: branch
+        run: |
+          set -uo pipefail
+
+          # Provisioning is asynchronous, so the branch is usually not ready the
+          # instant the PR opens.
+          out=""
+          for attempt in $(seq 1 20); do
+            if out=$(supabase branches get "$BRANCH" --project-ref "$PROJECT_ID" -o env 2>/dev/null); then
+              break
+            fi
+            echo "attempt $attempt: preview branch '$BRANCH' not ready yet"
+            out=""
+            sleep 15
+          done
+
+          if [ -z "$out" ]; then
+            echo "Preview branch '$BRANCH' did not become available." >&2
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Match defensively across possible key spellings. Only the API URL
+          # and the publishable anon key are ever extracted; Postgres
+          # connection strings are never written to a comment.
+          api_url=$(printf '%s\n' "$out" | sed -n 's/^\(SUPABASE_URL\|API_URL\|NEXT_PUBLIC_SUPABASE_URL\)="\{0,1\}\([^"]*\)"\{0,1\}$/\2/p' | head -1)
+          anon_key=$(printf '%s\n' "$out" | sed -n 's/^\(ANON_KEY\|SUPABASE_ANON_KEY\|NEXT_PUBLIC_SUPABASE_ANON_KEY\|PUBLISHABLE_KEY\)="\{0,1\}\([^"]*\)"\{0,1\}$/\2/p' | head -1)
+
+          if [ -z "$api_url" ]; then
+            echo "Could not read an API URL from 'supabase branches get' output." >&2
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo "found=true"
+            echo "api_url=$api_url"
+            echo "anon_key=$anon_key"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post or update the preview comment
+        if: steps.branch.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          API_URL: ${{ steps.branch.outputs.api_url }}
+          ANON_KEY: ${{ steps.branch.outputs.anon_key }}
+        run: |
+          set -euo pipefail
+          marker="<!-- preview-env -->"
+
+          body="$marker
+          ### 🐕 Preview environment
+
+          **[Open this PR in StackBlitz →](https://pr.new/github.com/$REPO/pull/$PR)**
+
+          It boots in the browser, so it cannot read repository secrets. Paste
+          these into \`frontend/.env.local\` to point the app at this PR's own
+          Supabase preview branch:
+
+          \`\`\`
+          NEXT_PUBLIC_SUPABASE_URL=$API_URL
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
+          \`\`\`
+
+          The branch runs \`supabase/migrations/\` and \`supabase/seed.sql\`, and
+          starts with no production data. It is deleted when this PR closes."
+
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --jq \
+            "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty")
+
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$existing" -f body="$body" >/dev/null
+            echo "updated existing preview comment"
+          else
+            gh api --method POST "repos/$REPO/issues/$PR/comments" -f body="$body" >/dev/null
+            echo "created preview comment"
+          fi

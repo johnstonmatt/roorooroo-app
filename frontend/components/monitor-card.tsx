@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   BugPlay,
+  ChevronDown,
+  ChevronRight,
   Clock,
   ExternalLink,
   Globe,
@@ -19,11 +21,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { api } from "@/lib/api-client";
+import { monitorCronExpression, monitorJobName } from "@/lib/monitor-schedule";
 import { useState } from "react";
 import Link from "next/link";
 
 interface Monitor {
   id: string;
+  user_id: string;
   name: string;
   url: string;
   pattern: string;
@@ -36,6 +41,15 @@ interface Monitor {
   notification_channels: Array<{ type: string; address: string }>;
 }
 
+interface MonitorLog {
+  id: string;
+  status: string;
+  response_time: number | null;
+  error_message: string | null;
+  content_snippet: string | null;
+  checked_at: string;
+}
+
 interface MonitorCardProps {
   monitor: Monitor;
   onChanged?: () => Promise<void> | void;
@@ -45,16 +59,44 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isQueuing, setIsQueuing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [logs, setLogs] = useState<MonitorLog[] | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
   const supabase = createClient();
 
   const toggleActive = async () => {
     setIsLoading(true);
+    const nextActive = !monitor.is_active;
     try {
       const { error } = await supabase
         .from("monitors")
-        .update({ is_active: !monitor.is_active })
+        .update({ is_active: nextActive })
         .eq("id", monitor.id);
       if (error) throw error;
+
+      // Keep the pg_cron job in step with the monitor. Without this a paused
+      // monitor keeps firing its job every interval indefinitely -- the check
+      // returns early on is_active, but the invocation still happens.
+      const jobName = monitorJobName(monitor.id);
+      const { data: scheduled, error: cronError } = nextActive
+        ? await supabase.rpc("create_monitor_cron_job", {
+          job_name: jobName,
+          cron_schedule: monitorCronExpression(monitor.check_interval),
+          monitor_id: monitor.id,
+          user_id: monitor.user_id,
+        })
+        : await supabase.rpc("delete_monitor_cron_job", { job_name: jobName });
+
+      // These functions swallow their own exceptions and report failure by
+      // returning false, so the return value matters as much as the error.
+      if (cronError || scheduled === false) {
+        console.error(
+          `Monitor ${nextActive ? "resumed" : "paused"} but its schedule was ` +
+            `not updated:`,
+          cronError,
+        );
+      }
+
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error toggling monitor:", error);
@@ -74,39 +116,105 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
 
     setIsDeleting(true);
     try {
+      // Unschedule first. If the row is removed first and this fails, the job
+      // is orphaned: it keeps firing forever against a monitor that no longer
+      // exists, and nothing is left in the UI to clean it up.
+      const jobName = monitorJobName(monitor.id);
+      const { data: unscheduled, error: cronError } = await supabase.rpc(
+        "delete_monitor_cron_job",
+        { job_name: jobName },
+      );
+      if (cronError || unscheduled === false) {
+        // Also returns false when there was simply no job to remove, which is
+        // not distinguishable here -- so log it and still delete the monitor,
+        // since leaving the row behind would not help either.
+        console.warn(
+          `No cron job was unscheduled for monitor ${monitor.id}:`,
+          cronError,
+        );
+      }
+
       const { error } = await supabase
         .from("monitors")
         .delete()
         .eq("id", monitor.id);
       if (error) throw error;
-      // Best-effort: unschedule associated cron job
-      try {
-        const jobName = `monitor_check_${monitor.id.replace(/-/g, "_")}`;
-        await supabase.rpc("delete_monitor_cron_job", { job_name: jobName });
-      } catch {}
+
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error deleting monitor:", error);
+      alert("Failed to delete watcher");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const queueMonitor = async () => {
+  // Debug affordance: exercises the whole pipeline end to end, including the
+  // notification send, rather than only reporting whether the pattern matched.
+  const debugCheck = async () => {
     setIsQueuing(true);
     try {
-      const { error } = await supabase
-        .from("monitors")
-        .update({ last_status: "pending" })
-        .eq("id", monitor.id);
-      if (error) throw error;
+      // `force` makes the check notify even when the status has not changed,
+      // without writing anything first. An earlier version armed this by
+      // setting last_status to "pending"; that persisted, so a failed request
+      // left the monitor primed to fire a bogus "setup" alert on its next
+      // scheduled check.
+      const result = await api.post("/check-endpoint", {
+        monitor_id: monitor.id,
+        force: true,
+      });
+
+      const data = result?.data ?? {};
+      alert(
+        [
+          `Status: ${data.status ?? "unknown"}`,
+          `Response time: ${data.responseTime ?? "n/a"}ms`,
+          `Notification sent: ${data.didNotify ? "yes" : "no"}`,
+          result?.message ? `\n${result.message}` : "",
+        ].filter(Boolean).join("\n"),
+      );
+
+      // The check wrote new rows, so drop any cached history.
+      setLogs(null);
+      if (showHistory) await loadHistory();
       if (onChanged) await onChanged();
     } catch (error) {
-      console.error("Error queueing monitor recheck:", error);
-      alert("Failed to queue recheck");
+      console.error("Error running debug check:", error);
+      alert(
+        `Debug check failed: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      );
     } finally {
       setIsQueuing(false);
     }
+  };
+
+  const loadHistory = async () => {
+    setLogsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("monitor_logs")
+        .select(
+          "id, status, response_time, error_message, content_snippet, checked_at",
+        )
+        .eq("monitor_id", monitor.id)
+        .order("checked_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setLogs(data ?? []);
+    } catch (error) {
+      console.error("Error loading check history:", error);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const toggleHistory = async () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (next && logs === null) await loadHistory();
   };
 
   const getStatusBadge = () => {
@@ -198,10 +306,10 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={queueMonitor}
+              onClick={debugCheck}
               disabled={isQueuing}
               className="text-blue-600 hover:text-blue-800"
-              title="Queue recheck"
+              title="Debug: run a check now and force a notification"
             >
               <BugPlay className="h-4 w-4" />
             </Button>
@@ -267,6 +375,71 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
               </span>
             </div>
           )}
+
+          {
+            /* Check history -- monitor_logs is written on every check and is
+              readable by the owner under RLS, but had no UI until now. */
+          }
+          <div className="border-t border-orange-100 pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleHistory}
+              className="h-auto p-0 text-sm text-orange-600 hover:text-orange-800"
+            >
+              {showHistory
+                ? <ChevronDown className="h-4 w-4 mr-1" />
+                : <ChevronRight className="h-4 w-4 mr-1" />}
+              Check history
+            </Button>
+
+            {showHistory && (
+              <div className="mt-3 space-y-2">
+                {logsLoading && (
+                  <p className="text-sm text-orange-600">Fetching history...</p>
+                )}
+
+                {!logsLoading && logs !== null && logs.length === 0 && (
+                  <p className="text-sm text-orange-600">
+                    No checks recorded yet.
+                  </p>
+                )}
+
+                {!logsLoading && logs?.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-start justify-between gap-3 text-xs bg-orange-50 rounded-md px-2 py-1.5"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {log.status}
+                        </Badge>
+                        <span className="text-orange-700">
+                          {new Date(log.checked_at).toLocaleString()}
+                        </span>
+                      </div>
+                      {log.error_message && (
+                        <p className="text-red-600 mt-1 break-words">
+                          {log.error_message}
+                        </p>
+                      )}
+                      {log.content_snippet && (
+                        <code className="block text-orange-800 mt-1 truncate">
+                          {log.content_snippet}
+                        </code>
+                      )}
+                    </div>
+                    {log.response_time !== null && (
+                      <span className="text-orange-600 whitespace-nowrap">
+                        {log.response_time}ms
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

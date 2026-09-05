@@ -3,10 +3,14 @@ import type { AppVariables } from "../types.ts";
 import { createServiceClient } from "../lib/supabase.ts";
 
 /**
- * Strict auth for cron-only endpoints.
+ * Auth for the monitor check endpoint.
  * - Accepts X-Cron-Secret header matching CRON_SECRET (or OG_CRON_SECRET)
  * - If CRON_SECRET is not configured, falls back to service role Authorization/apikey for compatibility
- * - Attaches a service Supabase client to context and does NOT set user context
+ * - Also accepts a signed-in user's JWT, so the dashboard can request an
+ *   immediate re-check of its own monitor. In that case `authUserId` is set to
+ *   the verified subject and the handler must scope the check to that user,
+ *   ignoring any user id in the request body.
+ * - Attaches a service Supabase client to context
  */
 export async function cronAuthMiddleware(
   c: Context<{ Variables: AppVariables }>,
@@ -48,6 +52,26 @@ export async function cronAuthMiddleware(
     c.set("supabase", svc);
     await next();
     return;
+  }
+
+  // Fall back to end-user auth: a logged-in user may re-check their own
+  // monitor. The service client is still used for the work, but the handler is
+  // pinned to this verified id, so a caller cannot check someone else's
+  // monitor by putting another user_id in the body.
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7).trim();
+    try {
+      const svc = createServiceClient();
+      const { data, error } = await svc.auth.getUser(token);
+      if (!error && data?.user?.id) {
+        c.set("supabase", svc);
+        c.set("authUserId", data.user.id);
+        await next();
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to verify user token:", err);
+    }
   }
 
   return c.json({ error: "Unauthorized" }, 401);
