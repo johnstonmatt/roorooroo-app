@@ -339,5 +339,13 @@ s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
 
+# pg-delta: Supabase's Postgres schema diffing engine, plus the declarative
+# schema workflow. With this enabled, `supabase db diff` and
+# `supabase db schema declarative sync` use pg-delta without per-command flags.
+[experimental.pgdelta]
+enabled = true
+# Source of truth for the schema. Edit these files, never Studio or the SQL editor.
+declarative_schema_path = "schemas/"
+
 [functions.api]
 # config goes here
