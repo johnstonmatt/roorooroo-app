@@ -9,20 +9,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { NotificationsList } from "@/components/notifications-list";
 import { Emoji } from "@/lib/emoji";
-
-interface Notification {
-  id: string;
-  type: string;
-  channel: string;
-  message: string;
-  status: string;
-  error_message?: string;
-  sent_at: string;
-  monitors?: {
-    name: string;
-    url: string;
-  };
-}
+import type { Notification } from "@/lib/db";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -51,30 +38,11 @@ export default function NotificationsPage() {
         // logged, the page rendered an empty list instead of an error.
         const { data, error: notifError } = await supabase
           .from("notifications")
-          .select(
-            "id, type, channel, message, status, error_message, sent_at, created_at, monitors(name, url)",
-          )
+          .select("*, monitors(name, url)")
           .order("created_at", { ascending: false });
         if (notifError) throw notifError;
 
-        setNotifications(
-          (data || []).map((n) => ({
-            id: n.id,
-            type: n.type,
-            channel: n.channel,
-            message: n.message,
-            status: n.status,
-            error_message: n.error_message ?? undefined,
-            // sent_at is null until the send succeeds, so fall back to when
-            // the row was written rather than rendering "Invalid Date".
-            sent_at: n.sent_at || n.created_at,
-            // PostgREST returns a single object for this many-to-one embed,
-            // but the untyped client widens it to an array. Normalise both.
-            monitors:
-              (Array.isArray(n.monitors) ? n.monitors[0] : n.monitors) ??
-                undefined,
-          })),
-        );
+        setNotifications(data ?? []);
       } catch (err) {
         console.error("Error loading notifications:", err);
         setError(

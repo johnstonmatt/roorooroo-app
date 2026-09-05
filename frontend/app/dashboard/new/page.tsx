@@ -24,10 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { SignOutButton } from "@/components/sign-out-button";
-import {
-  type NotificationChannel,
-  NotificationChannels,
-} from "@/components/notification-channels";
+import { NotificationChannels } from "@/components/notification-channels";
+import type { NotificationChannel } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";

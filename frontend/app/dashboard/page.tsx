@@ -10,12 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Bell, Plus } from "lucide-react";
-import { type Monitor, MonitorCard } from "@/components/monitor-card";
-
-interface Profile {
-  id: string;
-  display_name: string | null;
-}
+import { MonitorCard } from "@/components/monitor-card";
+import { type Monitor, type Profile, toMonitor } from "@/lib/db";
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -29,12 +25,10 @@ export default function DashboardPage() {
     try {
       const { data, error } = await supabase
         .from("monitors")
-        .select(
-          "id, user_id, name, url, is_active, created_at, last_checked, last_status, pattern, pattern_type, check_interval, notification_channels",
-        )
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setMonitors(data || []);
+      setMonitors((data ?? []).map(toMonitor));
     } catch (error) {
       console.error("Error fetching monitors:", error);
       router.push("/auth/login");

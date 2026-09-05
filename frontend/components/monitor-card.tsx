@@ -23,32 +23,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { api } from "@/lib/api-client";
 import { monitorCronExpression, monitorJobName } from "@/lib/monitor-schedule";
+import type { Monitor, MonitorLog } from "@/lib/db";
 import { useState } from "react";
 import Link from "next/link";
-
-export interface Monitor {
-  id: string;
-  user_id: string;
-  name: string;
-  url: string;
-  pattern: string;
-  pattern_type: string;
-  check_interval: number;
-  is_active: boolean;
-  last_checked: string | null;
-  last_status: string;
-  created_at: string;
-  notification_channels: Array<{ type: string; address: string }>;
-}
-
-interface MonitorLog {
-  id: string;
-  status: string;
-  response_time: number | null;
-  error_message: string | null;
-  content_snippet: string | null;
-  checked_at: string;
-}
 
 interface MonitorCardProps {
   monitor: Monitor;
@@ -364,8 +341,7 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           </div>
 
           {/* Notifications */}
-          {monitor.notification_channels &&
-            monitor.notification_channels.length > 0 && (
+          {monitor.notification_channels.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-orange-600">
               <span>🔔</span>
               <span>
@@ -416,7 +392,9 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
                           {log.status}
                         </Badge>
                         <span className="text-orange-700">
-                          {new Date(log.checked_at).toLocaleString()}
+                          {log.checked_at
+                            ? new Date(log.checked_at).toLocaleString()
+                            : "Unknown time"}
                         </span>
                       </div>
                       {log.error_message && (

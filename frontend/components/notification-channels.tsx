@@ -13,12 +13,7 @@ import {
   type PhoneValidationResult,
   validatePhoneNumber,
 } from "@/lib/phone-validation";
-
-export interface NotificationChannel {
-  type: "email" | "sms";
-  address: string;
-  id?: string; // Optional ID for tracking
-}
+import type { NotificationChannel } from "@/lib/db";
 
 export interface NotificationChannelsProps {
   channels: NotificationChannel[];

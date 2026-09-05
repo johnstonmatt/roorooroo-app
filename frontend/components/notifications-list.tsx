@@ -19,20 +19,7 @@ import {
 import { AlertCircle, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Emoji, EmojiText } from "@/lib/emoji";
-
-interface Notification {
-  id: string;
-  type: string;
-  channel: string;
-  message: string;
-  status: string;
-  error_message?: string;
-  sent_at: string;
-  monitors?: {
-    name: string;
-    url: string;
-  };
-}
+import type { Notification } from "@/lib/db";
 
 interface NotificationsListProps {
   notifications: Notification[];
@@ -41,7 +28,8 @@ interface NotificationsListProps {
 export function NotificationsList({ notifications }: NotificationsListProps) {
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not sent";
     const date = new Date(dateString);
     return date.toLocaleDateString() + " " + date.toLocaleTimeString();
   };
