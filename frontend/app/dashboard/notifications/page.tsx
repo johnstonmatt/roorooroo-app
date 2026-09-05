@@ -70,8 +70,9 @@ export default function NotificationsPage() {
             sent_at: n.sent_at || n.created_at,
             // PostgREST returns a single object for this many-to-one embed,
             // but the untyped client widens it to an array. Normalise both.
-            monitors: (Array.isArray(n.monitors) ? n.monitors[0] : n.monitors) ??
-              undefined,
+            monitors:
+              (Array.isArray(n.monitors) ? n.monitors[0] : n.monitors) ??
+                undefined,
           })),
         );
       } catch (err) {
