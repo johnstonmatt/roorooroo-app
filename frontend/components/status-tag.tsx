@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { api } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ interface ApiDocument {
 }
 
 export default function StatusTag() {
+  const isHome = usePathname() === "/";
   const [doc, setDoc] = useState<ApiDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,13 @@ export default function StatusTag() {
       try {
         // Serving the document also proves the function is deployed and up,
         // so it doubles as the liveness check the old /status endpoint was.
-        const res: ApiDocument = await api.get("/openapi.json");
+        const res: ApiDocument | null = await api.get("/openapi.json");
+        // api.get yields null for a response it does not recognize as JSON.
+        // Without this, that silently renders as "Disconnected" with nothing
+        // logged -- which is exactly how it failed once already.
+        if (!res?.info) {
+          throw new Error("API returned no usable OpenAPI document");
+        }
         if (isMounted) {
           setDoc(res);
         }
@@ -70,7 +78,15 @@ export default function StatusTag() {
   const envText = doc?.info["x-environment"];
 
   return (
-    <div className="w-full flex items-center justify-center gap-2 bg-transparent pb-0 mb-0">
+    <div
+      className={cn(
+        "w-full flex items-center justify-center gap-2 py-2",
+        // The home page ends in a white footer; every other page ends in the
+        // layout gradient. Matching it here avoids a strip of the wrong
+        // colour under the last section.
+        isHome ? "bg-white/80" : "bg-transparent",
+      )}
+    >
       <Badge
         variant="outline"
         className={cn(

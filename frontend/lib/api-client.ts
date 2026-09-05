@@ -80,13 +80,16 @@ export async function apiClient(
       throw new ApiError(errorMessage, response.status);
     }
 
-    // Handle empty responses (like DELETE requests)
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
+    // Handle empty responses (like DELETE requests).
+    // Match structured JSON suffixes too (RFC 6839), not just
+    // application/json: the OpenAPI document is served as
+    // application/openapi+json, and a plain substring check silently
+    // returned null for it.
+    const contentType = response.headers.get("content-type") ?? "";
+    if (/^application\/([\w.+-]+\+)?json\b/i.test(contentType)) {
       return await response.json();
-    } else {
-      return null;
     }
+    return null;
   } catch (error) {
     console.error(`API request failed: ${method} ${endpoint}`, error);
     throw error;
