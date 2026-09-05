@@ -1,3 +1,5 @@
+SET local check_function_bodies = off;
+
 CREATE OR REPLACE FUNCTION public._get_monitor_check_url()
   RETURNS text
   LANGUAGE plpgsql
@@ -16,10 +18,8 @@ BEGIN
     base_url := left(base_url, length(base_url)-1);
   END IF;
 
-  -- Single 'api' Edge Function; withAPIStatusEndpoint routes within it
-  url := base_url || '/api/check-endpoint';
+  -- Each endpoint is now its own Edge Function, so there is no /api prefix
+  url := base_url || '/check-endpoint';
   RETURN url;
 END;
 $function$;
-
-GRANT EXECUTE ON FUNCTION "public"."_get_monitor_check_url"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";

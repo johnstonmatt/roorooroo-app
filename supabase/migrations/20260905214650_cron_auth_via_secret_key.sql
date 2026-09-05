@@ -1,3 +1,5 @@
+SET local check_function_bodies = off;
+
 CREATE OR REPLACE FUNCTION public._get_cron_headers()
   RETURNS jsonb
   LANGUAGE plpgsql
@@ -31,5 +33,3 @@ BEGIN
   );
 END;
 $function$;
-
-GRANT EXECUTE ON FUNCTION "public"."_get_cron_headers"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";

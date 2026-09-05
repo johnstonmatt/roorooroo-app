@@ -1,4 +1,4 @@
-import { ValidationError } from "../middleware/error.ts";
+import { ValidationError } from "./errors.ts";
 
 /**
  * Validation schema types

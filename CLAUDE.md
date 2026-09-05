@@ -7,10 +7,10 @@ code in this repository.
 
 A full-stack website monitoring application that watches websites for content
 changes and sends notifications. Built with Next.js 14 (static export) on the
-frontend and Supabase Edge Functions (Deno + Hono) for server-side monitor
-checks. All database access from the frontend uses the Supabase JS client with
-Row Level Security (RLS). Scheduled checks run via `pg_cron` calling the Edge
-Function.
+frontend and Supabase Edge Functions (Deno + `@supabase/server`) for server-side
+monitor checks. All database access from the frontend uses the Supabase JS
+client with Row Level Security (RLS). Scheduled checks run via `pg_cron` calling
+the Edge Function.
 
 **Key constraint**: Users must have a `@supabase.io` email address.
 
@@ -93,12 +93,20 @@ deno task fns:deploy
 
 - **Location**: `supabase/functions/api/`
 - **Runtime**: Deno 2
-- **Framework**: Hono v4 for HTTP routing
+- **Composition**: `withSupabase` from `@supabase/server` (no HTTP framework).
+  It supplies CORS, the auth gate, and both Supabase clients, so `index.ts` only
+  dispatches on pathname.
 - **Purpose**: Server-only tasks (monitor checks, notifications)
 - **Key Endpoints**:
   - `POST /functions/v1/api/check-endpoint` - Execute a monitor check
-    (cron-only, authenticated via `X-Cron-Secret` header or service role)
-  - `GET /functions/v1/api/status` - Health check endpoint (public)
+    (`auth: ['user', 'secret']` -- pg_cron presents a secret key, the dashboard
+    presents the caller's JWT)
+  - `GET /functions/v1/api/openapi.json` - The OpenAPI 3.1 document (public;
+    serving it also proves the function is up)
+
+  Each endpoint is its own Edge Function exporting the nested form
+  (`export default { fetch: withSupabase(...) }`), so there is no router and no
+  path parsing. Shared code lives in `functions/_shared/`.
 
 ### Database Schema
 
@@ -146,11 +154,37 @@ flags.
 ### Authentication & Authorization
 
 - **Frontend**: Uses Supabase Auth with email/password
-- **Edge Function**: Authenticated via `X-Cron-Secret` header (for cron) or
-  service role key
+- **Edge Function**: `withSupabase` auth modes. `user` verifies the JWT against
+  the local JWKS; `secret` matches an `sb_secret_` key in the `apikey` header;
+  `/status` uses `none`. `ctx.authMode` tells the handler which matched -- in
+  `user` mode the verified subject replaces any `user_id` in the request body,
+  so a caller cannot check someone else's monitor.
 - **Database**: RLS policies ensure users only access their own data
-- **Cron Security**: Uses Vault-stored secrets (`cron/secret`,
-  `supabase/anon_key`) with fallback to DB settings
+- **Routing**: `withOpenAPI` (built with `defineMiddleware`) serves the document
+  and rejects any path it does not declare. `document.paths` is the route table,
+  so there is no second list to drift from it. Typed with `openapi3-ts`
+  (`OpenAPIObject`, type-only import, no cold-start cost). Adding an endpoint
+  means declaring it in `_shared/openapi-document.ts`.
+- **Client privilege**: the handler picks the client by mode -- `ctx.supabase`
+  (RLS-scoped) for a user, `ctx.supabaseAdmin` for cron, which has no
+  `auth.uid()` to scope by. So a user's own policies are a backstop and the
+  explicit `user_id` filter is defence in depth. Note `ctx.supabase` is
+  RLS-restricted in `secret` mode too, despite the docs describing it as full
+  access -- cron genuinely needs the admin client.
+- **Authorization**: the handler resolves the monitor itself. In `user` mode it
+  pins to the verified JWT subject and discards any `user_id` in the body; only
+  `secret` mode (pg_cron) may name a user. Kept inline rather than as middleware
+  -- there is one monitor-scoped route, so the abstraction had no second
+  consumer to justify it.
+- **Cron Security**: `_get_cron_headers()` sends only `apikey: <sb_secret_...>`,
+  read from Vault (`supabase/secret_key`) with a fallback to
+  `app.settings.secret_key`. It deliberately sends no Authorization bearer: a
+  credential that is present but invalid is rejected outright rather than
+  falling through to a lesser mode.
+- **Platform JWT check**: `verify_jwt = false` for `[functions.api]`, because
+  the platform gate is equivalent to `auth: 'user'` on every route and would
+  reject both `/status` and the cron call. The gate moves into the function, it
+  is not removed.
 
 ### Pattern Matching Types
 
@@ -172,7 +206,10 @@ frontend/
   next.config.mjs   - Static export configuration
 
 supabase/
-  functions/api/    - Edge Function (Hono app)
+  functions/
+    deno.json       - import map (Deno workspace member)
+    api/index.ts    - the pipeline: openapi -> auth gate -> handler
+    _shared/        - withOpenAPI, openapi-document, check logic
     index.ts        - Main entry point
     routes/         - Route handlers
     middleware/     - CORS, auth, error handling
@@ -204,7 +241,8 @@ scripts/
 
 - `SUPABASE_URL` - Project URL (service-side)
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (server-only)
-- `CRON_SECRET` - Shared secret for cron authentication
+- Auth keys (`SUPABASE_SECRET_KEYS`, `SUPABASE_PUBLISHABLE_KEYS`,
+  `SUPABASE_JWKS`) are auto-provisioned by the platform and the CLI
 - `RESEND_API_KEY` - Email notification API key (optional)
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` - SMS
   notification credentials (optional)
@@ -263,9 +301,9 @@ generated diff:
 - **`pg_cron` job rows**: scheduled jobs are rows in `cron.job`, created at
   runtime by `create_monitor_cron_job()`. The functions are managed; the jobs
   they schedule are not.
-- **Vault secrets**: `cron/secret` and `supabase/anon_key` are data in
-  `vault.secrets`. The `supabase_vault` extension is installed but filtered from
-  the export as platform-managed, which is why it has no file under
+- **Vault secrets**: `supabase/secret_key` is data in `vault.secrets`. The
+  `supabase_vault` extension is installed but filtered from the export as
+  platform-managed, which is why it has no file under
   `schemas/_cluster/extensions/`.
 - **Supabase-managed internals** of the `auth` and `storage` schemas.
   `schemas/auth/tables/users.sql` holds only our own `on_auth_user_created`

@@ -353,5 +353,9 @@ enabled = true
 # Source of truth for the schema. Edit these files, never Studio or the SQL editor.
 declarative_schema_path = "schemas/"
 
+# The platform's blanket JWT check is equivalent to auth: 'user' on every
+# route. It would reject both /api/status (public) and the secret-key cron
+# call, so the function runs its own per-route gate via withSupabase instead.
+# Auth moves into the function, it is not removed.
 [functions.api]
-# config goes here
+verify_jwt = false

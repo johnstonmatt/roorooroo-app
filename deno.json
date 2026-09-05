@@ -4,7 +4,7 @@
     "setup-branching": "bash scripts/setup-branching.sh",
     "frontend:build": "cd frontend && pnpm build",
     "fns:deploy": "npx supabase functions deploy",
-    "fns:checks": "deno fmt --check && deno lint ./supabase/functions/api && deno check ./supabase/functions/api",
+    "fns:checks": "deno fmt --check && deno lint ./supabase/functions && deno check ./supabase/functions/api/index.ts",
     "frontend:checks": "cd frontend && pnpm lint",
     "checks": {
       "command": "deno task fns:checks && deno task frontend:checks"
@@ -28,7 +28,12 @@
   },
   "lint": {
     "rules": {
-      "exclude": ["no-import-prefix"]
+      "exclude": [
+        "no-import-prefix"
+      ]
     }
-  }
+  },
+  "workspace": [
+    "./supabase/functions"
+  ]
 }

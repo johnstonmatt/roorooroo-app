@@ -33,8 +33,9 @@ export async function apiClient(
   // Get the current session for authentication
   const { data: { session } } = await supabase.auth.getSession();
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:54321/functions/v1/api";
+  // Single "api" function; `endpoint` is a route within it (e.g. "/status").
+  const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "http://localhost:54321/functions/v1/api").replace(/\/+$/, "");
   const url = `${apiBaseUrl}${endpoint}`;
 
   const requestHeaders: Record<string, string> = {

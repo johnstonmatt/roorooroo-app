@@ -1,10 +1,13 @@
 // Notification handling service
 import { type SMSMessage, type SMSResult, SMSService } from "./sms-service.ts";
-import { Resend } from "npm:resend@6.1.2";
+import { Resend } from "resend";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../../db/database.types.ts";
 
 export type Status = "found" | "not_found" | "error" | "pending";
 
-export type NotificationType = Omit<"pending", Status>;
+/** Every status except "pending", which is a starting state, not a result. */
+export type NotificationType = Exclude<Status, "pending">;
 
 /**
  * Why a notification is being sent.
@@ -48,6 +51,25 @@ export interface NotificationChannel {
   address: string;
 }
 
+/**
+ * Narrow the monitors.notification_channels jsonb column.
+ *
+ * The column has no shape in the schema, so this validates rather than
+ * asserting: a malformed entry is dropped instead of crashing the send path
+ * with an undefined address.
+ */
+export function parseNotificationChannels(
+  value: unknown,
+): NotificationChannel[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is NotificationChannel => {
+    if (typeof entry !== "object" || entry === null) return false;
+    const channel = entry as Record<string, unknown>;
+    return (channel.type === "email" || channel.type === "sms") &&
+      typeof channel.address === "string" && channel.address.length > 0;
+  });
+}
+
 export interface Monitor {
   id: string;
   name: string;
@@ -76,7 +98,12 @@ export interface NotificationResult {
 export class NotificationService {
   private smsService: SMSService;
 
-  constructor() {
+  /**
+   * Takes the admin client from the request context rather than building its
+   * own. Client construction is withSupabase's job now, and a service client
+   * assembled here would bypass the env resolution it performs.
+   */
+  constructor(private supabase: SupabaseClient<Database>) {
     this.smsService = new SMSService();
   }
 
@@ -318,16 +345,13 @@ export class NotificationService {
     result: NotificationResult,
   ): Promise<void> {
     try {
-      const { createServiceClient } = await import("./supabase.ts");
-      const supabase = createServiceClient();
-
       const message = channel.type === "email"
         ? `Subject: ${this.getEmailSubject(payload)}\n\n${
           this.formatEmailMessage(payload)
         }`
         : this.formatSMSMessage(payload);
 
-      await supabase.from("notifications").insert({
+      await this.supabase.from("notifications").insert({
         monitor_id: payload.monitor.id,
         user_id: payload.monitor.user_id,
         type: payload.type,
