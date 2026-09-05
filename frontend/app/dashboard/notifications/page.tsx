@@ -67,7 +67,7 @@ export default function NotificationsPage() {
             })),
           );
         } catch (error) {
-          console.error("Error fetching notifications:");
+          console.error("Error fetching notifications:", error);
         }
       } catch (error) {
         console.error("Error loading notifications:", error);
