@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { api } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -15,8 +14,12 @@ interface ApiDocument {
   };
 }
 
-export default function StatusTag() {
-  const isHome = usePathname() === "/";
+/**
+ * The API health strip. It draws no background of its own -- whichever surface
+ * renders it (the marketing footer, the app shell) owns that, so the strip can
+ * never disagree with the section it sits in.
+ */
+export default function StatusTag({ className }: { className?: string }) {
   const [doc, setDoc] = useState<ApiDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,10 +84,7 @@ export default function StatusTag() {
     <div
       className={cn(
         "w-full flex items-center justify-center gap-2 py-2",
-        // The home page ends in a white footer; every other page ends in the
-        // layout gradient. Matching it here avoids a strip of the wrong
-        // colour under the last section.
-        isHome ? "bg-white/80" : "bg-transparent",
+        className,
       )}
     >
       <Badge

@@ -9,13 +9,15 @@ import {
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Emoji } from "@/lib/emoji";
+import { BrandLink, HomeNavActions } from "@/components/nav-auth";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function HomePage() {
   return (
     <div>
-      <header className="border-b border-orange-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-orange-200 bg-surface-raised backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <BrandLink className="flex items-center gap-3">
             <div className="text-3xl">
               <Emoji char="🐕" />
             </div>
@@ -23,21 +25,9 @@ export default function HomePage() {
               <h1 className="text-2xl font-bold text-orange-800">RooRooRoo</h1>
               <p className="text-xs text-orange-600">Website Watcher</p>
             </div>
-          </div>
+          </BrandLink>
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              asChild
-              className="text-orange-700 hover:text-orange-800"
-            >
-              <Link href="/auth/login">Sign In</Link>
-            </Button>
-            <Button
-              asChild
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <Link href="/auth/signup">Get Started</Link>
-            </Button>
+            <HomeNavActions />
           </div>
         </div>
       </header>
@@ -251,39 +241,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-orange-200 bg-white/80 py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <div className="text-2xl">
-                <Emoji char="🐕" />
-              </div>
-              <div>
-                <h3 className="font-bold text-orange-800">RooRooRoo</h3>
-                <p className="text-xs text-orange-600">
-                  Your faithful website watcher
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-orange-600">
-              <Link
-                href="https://github.com/johnstonmatt/roorooroo-app"
-                className="hover:text-orange-800"
-              >
-                GitHub
-              </Link>
-            </div>
-          </div>
-          <div className="text-center mt-8 pt-8 border-t border-orange-200">
-            <p className="text-sm text-orange-600">
-              © {`${new Date().getFullYear()}`} RooRooRoo - For Ollie{" "}
-              <Emoji char="❤️" />
-              <Emoji char="🐾" />
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

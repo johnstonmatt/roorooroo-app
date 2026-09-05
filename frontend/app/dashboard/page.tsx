@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { BrandLink } from "@/components/nav-auth";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -118,15 +119,15 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
       {/* Header */}
-      <header className="border-b border-orange-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-orange-200 bg-surface-raised backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <BrandLink className="flex items-center gap-3">
             <div className="text-3xl">🐕</div>
             <div>
               <h1 className="text-2xl font-bold text-orange-800">RooRooRoo</h1>
               <p className="text-xs text-orange-600">Dashboard</p>
             </div>
-          </div>
+          </BrandLink>
           <div className="flex items-center gap-3">
             <span className="text-sm text-orange-700">
               Hello, {profile?.display_name || "Watcher"}!
