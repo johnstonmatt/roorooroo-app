@@ -1,6 +1,0 @@
-{
-  "bot": {
-    "issues": { "enabled": true },
-    "pullRequests": { "enabled": true }
-  }
-}

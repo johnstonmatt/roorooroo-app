@@ -184,9 +184,9 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=5
+TOTAL_STAGES=4
 
-banner "Supabase branching + StackBlitz pr.new"
+banner "Supabase branching"
 
 # ── Stage 1: project ref ──────────────────────────────────────────────────
 stage "Supabase — which project"
@@ -235,17 +235,7 @@ warn "Each running preview branch bills at the same hourly rate as a project."
 note "Check current pricing at https://supabase.com/pricing before enabling on a busy repo."
 pause "Enabled? Press Enter."
 
-# ── Stage 4: the pr.new bot ───────────────────────────────────────────────
-stage "StackBlitz — install the CodeflowApp bot"
-say "This is the other half: it comments a one-click link that boots the PR"
-say "in a browser IDE."
-open_url "https://stackblitz.com/install-github-app"
-step "Choose your account or org."
-step "Grant access to johnstonmatt/roorooroo-app (or all repositories)."
-note "Bot behaviour is configured in .stackblitz/codeflow.json, already committed."
-pause "Installed? Press Enter to verify."
-
-# ── Stage 5: verify ───────────────────────────────────────────────────────
+# ── Stage 4: verify ───────────────────────────────────────────────────────
 stage "Verify"
 say "Checking the pieces the preview-env workflow depends on."
 
@@ -298,5 +288,5 @@ fi
 
 finish
 say "Open a PR to test: Supabase creates a preview branch, and the"
-say "'Preview environment' workflow comments a pr.new link wired to it."
+say "'Preview environment' workflow comments its URL and anon key."
 printf '\n'

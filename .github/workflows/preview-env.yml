@@ -1,8 +1,8 @@
-name: Preview environment
+name: Preview database
 
-# Links the two halves of a PR preview: the Supabase preview branch (created by
-# the Supabase GitHub integration) and the StackBlitz pr.new workspace, which
-# runs in the browser and so cannot read repository secrets.
+# Surfaces the Supabase preview branch created for this PR by the Supabase
+# GitHub integration, so a reviewer can point a local frontend at the PR's own
+# database instead of hunting for its credentials in the dashboard.
 
 on:
   pull_request:
@@ -83,21 +83,18 @@ jobs:
           marker="<!-- preview-env -->"
 
           body="$marker
-          ### 🐕 Preview environment
+          ### 🐕 Preview database
 
-          **[Open this PR in StackBlitz →](https://pr.new/github.com/$REPO/pull/$PR)**
-
-          It boots in the browser, so it cannot read repository secrets. Paste
-          these into \`frontend/.env.local\` to point the app at this PR's own
-          Supabase preview branch:
+          This PR has its own Supabase branch. Point a local frontend at it by
+          putting these in \`frontend/.env.local\`:
 
           \`\`\`
           NEXT_PUBLIC_SUPABASE_URL=$API_URL
           NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
           \`\`\`
 
-          The branch runs \`supabase/migrations/\` and \`supabase/seed.sql\`, and
-          starts with no production data. It is deleted when this PR closes."
+          It runs \`supabase/migrations/\` and \`supabase/seed.sql\`, and starts
+          with no production data. It is deleted when this PR closes."
 
           existing=$(gh api "repos/$REPO/issues/$PR/comments" --jq \
             "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty")
