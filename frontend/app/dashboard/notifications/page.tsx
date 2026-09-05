@@ -27,6 +27,7 @@ interface Notification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -44,33 +45,40 @@ export default function NotificationsPage() {
           return;
         }
 
-        // Get user's notifications using Supabase client
-        try {
-          const { data, error: notifError } = await supabase
-            .from("notification_history")
-            .select(
-              "id, monitor_id, user_id, type, channel, message, status, created_at, sent_at",
-            )
-            .order("created_at", { ascending: false });
-          if (notifError) throw notifError;
-          // Map to expected shape
-          setNotifications(
-            (data || []).map((n) => ({
-              id: n.id,
-              type: n.type,
-              channel: n.channel,
-              message: n.message,
-              status: n.status,
-              error_message: undefined,
-              sent_at: n.sent_at || n.created_at,
-              monitors: undefined,
-            })),
-          );
-        } catch (error) {
-          console.error("Error fetching notifications:", error);
-        }
-      } catch (error) {
-        console.error("Error loading notifications:", error);
+        // notifications is the table; RLS scopes it to the caller. An
+        // earlier version read the notification_history view, which was
+        // dropped in 20251007051434 -- and because the failure was only
+        // logged, the page rendered an empty list instead of an error.
+        const { data, error: notifError } = await supabase
+          .from("notifications")
+          .select(
+            "id, type, channel, message, status, error_message, sent_at, created_at, monitors(name, url)",
+          )
+          .order("created_at", { ascending: false });
+        if (notifError) throw notifError;
+
+        setNotifications(
+          (data || []).map((n) => ({
+            id: n.id,
+            type: n.type,
+            channel: n.channel,
+            message: n.message,
+            status: n.status,
+            error_message: n.error_message ?? undefined,
+            // sent_at is null until the send succeeds, so fall back to when
+            // the row was written rather than rendering "Invalid Date".
+            sent_at: n.sent_at || n.created_at,
+            // PostgREST returns a single object for this many-to-one embed,
+            // but the untyped client widens it to an array. Normalise both.
+            monitors: (Array.isArray(n.monitors) ? n.monitors[0] : n.monitors) ??
+              undefined,
+          })),
+        );
+      } catch (err) {
+        console.error("Error loading notifications:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load notifications",
+        );
       } finally {
         setLoading(false);
       }
@@ -126,7 +134,24 @@ export default function NotificationsPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {notifications && notifications.length > 0
+          {error
+            ? (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-6">⚠️</div>
+                <h2 className="text-2xl font-bold text-orange-800 mb-4">
+                  Could not load notifications
+                </h2>
+                <p className="text-orange-600 mb-8 max-w-md mx-auto">{error}</p>
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <Link href="/dashboard">Back to Dashboard</Link>
+                </Button>
+              </div>
+            )
+            : notifications.length > 0
             ? <NotificationsList notifications={notifications} />
             : (
               /* Empty State */
