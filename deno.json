@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "setup-twilio": "bash scripts/setup-twilio.sh",
     "frontend:build": "cd frontend && pnpm build",
     "fns:deploy": "npx supabase functions deploy",
     "fns:checks": "deno fmt --check && deno lint ./supabase/functions/api && deno check ./supabase/functions/api",
