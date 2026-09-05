@@ -1,5 +1,5 @@
 /**
- * API client for making requests to the Hono backend
+ * API client for making requests to the Edge Function
  */
 
 import { createClient } from "@/lib/supabase/client";
@@ -21,7 +21,7 @@ interface ApiClientOptions {
 }
 
 /**
- * Makes authenticated API requests to the Hono backend
+ * Makes authenticated API requests to the Edge Function
  */
 export async function apiClient(
   endpoint: string,

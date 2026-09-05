@@ -108,7 +108,7 @@ export function NotificationChannels({
     const newChannel: NotificationChannel = {
       type: "email",
       address: email,
-      id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `email-${crypto.randomUUID()}`,
     };
 
     onChange([...channels, newChannel]);
@@ -147,7 +147,7 @@ export function NotificationChannels({
     const newChannel: NotificationChannel = {
       type: "sms",
       address: phoneValidation.normalizedNumber,
-      id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `sms-${crypto.randomUUID()}`,
     };
 
     onChange([...channels, newChannel]);

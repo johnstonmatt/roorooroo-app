@@ -1,8 +1,4 @@
-import {
-  AsYouType,
-  isValidPhoneNumber,
-  parsePhoneNumber,
-} from "libphonenumber-js";
+import { AsYouType, parsePhoneNumber } from "libphonenumber-js";
 
 export interface PhoneValidationResult {
   isValid: boolean;
@@ -73,40 +69,6 @@ export function validatePhoneNumber(
 }
 
 /**
- * Formats a phone number for display purposes
- * @param phoneNumber - The phone number to format (preferably in E.164 format)
- * @param defaultCountry - Default country code to use if not specified
- * @returns Formatted phone number string or original if formatting fails
- */
-export function formatPhoneNumber(
-  phoneNumber: string,
-  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
-): string {
-  if (!phoneNumber || typeof phoneNumber !== "string") {
-    return phoneNumber;
-  }
-
-  try {
-    // First try to parse without country code
-    let parsedNumber;
-    try {
-      parsedNumber = parsePhoneNumber(phoneNumber);
-    } catch {
-      // If that fails, try with default country
-      parsedNumber = parsePhoneNumber(phoneNumber, defaultCountry);
-    }
-
-    if (parsedNumber && parsedNumber.isValid()) {
-      return parsedNumber.formatInternational();
-    }
-  } catch {
-    // If parsing fails, return original
-  }
-
-  return phoneNumber;
-}
-
-/**
  * Formats phone number as user types (for real-time formatting in input fields)
  * @param phoneNumber - The partial phone number being typed
  * @param defaultCountry - Default country code to use
@@ -126,39 +88,4 @@ export function formatPhoneNumberAsYouType(
   } catch {
     return phoneNumber;
   }
-}
-
-/**
- * Checks if a phone number is valid without full parsing
- * @param phoneNumber - The phone number to check
- * @param defaultCountry - Default country code to use
- * @returns boolean indicating if the number is valid
- */
-export function isPhoneNumberValid(
-  phoneNumber: string,
-  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
-): boolean {
-  if (!phoneNumber || typeof phoneNumber !== "string") {
-    return false;
-  }
-
-  try {
-    return isValidPhoneNumber(phoneNumber, defaultCountry);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Normalizes a phone number to E.164 format
- * @param phoneNumber - The phone number to normalize
- * @param defaultCountry - Default country code to use
- * @returns Normalized phone number in E.164 format or null if invalid
- */
-export function normalizePhoneNumber(
-  phoneNumber: string,
-  defaultCountry: "US" | "CA" | "GB" | "AU" = "US",
-): string | null {
-  const result = validatePhoneNumber(phoneNumber, defaultCountry);
-  return result.isValid ? result.normalizedNumber! : null;
 }

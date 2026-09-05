@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Bell, Plus } from "lucide-react";
 import { type Monitor, MonitorCard } from "@/components/monitor-card";
-import type { User } from "@supabase/supabase-js";
 
 interface Profile {
   id: string;
@@ -19,7 +18,6 @@ interface Profile {
 }
 
 export default function DashboardPage() {
-  const [, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [todayNotificationCount, setTodayNotificationCount] = useState(0);
@@ -57,8 +55,6 @@ export default function DashboardPage() {
           router.push("/auth/login");
           return;
         }
-
-        setUser(user);
 
         // Get user profile
         const { data: profile } = await supabase.from("profiles").select("*")
