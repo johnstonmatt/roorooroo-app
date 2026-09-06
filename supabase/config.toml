@@ -352,8 +352,9 @@ enabled = true
 declarative_schema_path = "schemas/"
 
 # The platform's blanket JWT check is equivalent to auth: 'user' on every
-# route. It would reject both /api/status (public) and the secret-key cron
-# call, so the function runs its own per-route gate via withSupabase instead.
+# route. It would reject both /api/openapi.json (public) and the secret-key
+# cron call, so the function runs its own per-route gate via withSupabase
+# instead.
 # Auth moves into the function, it is not removed.
 [functions.api]
 verify_jwt = false

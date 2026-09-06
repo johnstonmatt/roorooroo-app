@@ -1,91 +1,250 @@
 # RooRooRoo
 
-> A full-stack website monitoring application built with Next.js 14 (static export) and Supabase. Monitors websites for content changes and sends email/SMS notifications. Uses Supabase Edge Functions (Deno + Hono) for server-side checks, with all frontend database access via Supabase JS client under Row Level Security. Scheduled via pg_cron.
+> A full-stack website monitoring application built with Next.js 16 (static
+> export) and Supabase. Monitors websites for content changes and sends
+> email/SMS notifications. A single Supabase Edge Function (Deno 2, composed
+> from `@supabase/middleware` and `@supabase/server` — no HTTP framework)
+> performs server-side checks; all frontend database access goes directly to
+> Postgres via the Supabase JS client under Row Level Security. Scheduled via
+> `pg_cron` + `pg_net`.
 
-This project demonstrates a minimal Supabase server surface area architecture: the frontend handles all database operations directly via the Supabase client with RLS, while Edge Functions are reserved exclusively for server-only tasks (executing monitor checks and sending notifications).
+This project demonstrates a minimal Supabase server surface area architecture:
+the frontend handles all database operations directly via the Supabase client
+with RLS, while the Edge Function is reserved exclusively for server-only tasks
+(executing monitor checks and sending notifications).
 
-**Tech Stack**: Next.js 14, React 18, Tailwind CSS v4, TypeScript, Supabase (Postgres + Auth + Edge Functions), Deno 2, Hono 4, Resend (email), Twilio (SMS)
+**Tech Stack**: Next.js 16, React 19, Tailwind CSS v4, TypeScript 6, Supabase
+(Postgres + Auth + Edge Functions), Deno 2, Resend (email), Twilio (SMS),
+OpenAPI 3.1
 
-**Key Constraint**: Users must have a @supabase.io email address
+**Key Constraint**: Sign-up is restricted to `@supabase.io` addresses. This is
+enforced in the signup form only, not in the database — see Limitations.
 
 ## Core Documentation
 
-[CLAUDE.md](/CLAUDE.md): Architecture overview, common commands, development patterns, and deployment notes
+[CLAUDE.md](/CLAUDE.md): Architecture overview, common commands, development
+patterns, and deployment notes
 
-[README.md](/README.md): Project motivation, limitations, repository structure, environment variables, and security considerations
+[README.md](/README.md): Project motivation, local development, repository
+structure, environment variables, and security considerations
 
 ## Frontend
 
-[Frontend Package Config](/frontend/package.json): Dependencies and npm scripts for the Next.js application
+[Frontend Package Config](/frontend/package.json): Dependencies and pnpm scripts
+for the Next.js application
 
-[Next.js Config](/frontend/next.config.mjs): Static export configuration with trailing slashes
+[Next.js Config](/frontend/next.config.mjs): Static export configuration
+(`output: "export"`, trailing slashes, `agentRules: false`)
 
-[Supabase Client](/frontend/lib/supabase/client.ts): Browser-side Supabase client singleton using @supabase/ssr
+[Supabase Client](/frontend/lib/supabase/client.ts): Browser-side Supabase
+client singleton using `@supabase/ssr`, typed against the generated schema
+
+[API Client](/frontend/lib/api-client.ts): Typed fetch wrapper for the Edge
+Function. The base URL is derived from `NEXT_PUBLIC_SUPABASE_URL` so auth and
+the function always come from the same project
+
+[Row Types](/frontend/lib/db.ts): Application row types derived from the
+generated database types
+
+[Monitor Scheduling](/frontend/lib/monitor-schedule.ts): pg_cron job naming and
+interval-to-cron-expression conversion
 
 [Dashboard Page](/frontend/app/dashboard/page.tsx): Main monitor list view
 
 [New Monitor Page](/frontend/app/dashboard/new/page.tsx): Monitor creation form
 
-[Notifications Page](/frontend/app/dashboard/notifications/page.tsx): Notification history view
+[Notifications Page](/frontend/app/dashboard/notifications/page.tsx):
+Notification history view
 
-## Backend (Edge Functions)
+[Signup Page](/frontend/app/auth/signup/page.tsx): Email allowlist enforcement
+(`NEXT_PUBLIC_ALLOWED_SIGNUP_DOMAIN` / `NEXT_PUBLIC_ALLOWED_SIGNUP_EMAILS`)
 
-[API Entry Point](/supabase/functions/api/index.ts): Hono application with CORS, error handling, and route registration
+[Status Badge](/frontend/components/status-tag.tsx): Polls
+`GET /functions/v1/api/openapi.json` and renders `info.version` and
+`info.x-environment`
 
-[Monitor Check Route](/supabase/functions/api/routes/monitor-check.ts): POST /check-endpoint handler that fetches URLs, checks patterns, logs results, and triggers notifications
+## Backend (Edge Function)
 
-[Notification Service](/supabase/functions/api/lib/notifications.ts): Email (Resend) and SMS (Twilio) notification implementation
+There is one Edge Function, named `api`. It has no router: `pipeline` composes
+three middleware layers around a single handler, and `withOpenAPI` performs the
+only path matching there is.
 
-[CORS Middleware](/supabase/functions/api/middleware/cors.ts): Configures allowed origins from environment variables
+[API Entry Point](/supabase/functions/api/index.ts): The pipeline
+(`withCORS` → `withOpenAPI` → `withSupabase` → handler) and the
+`POST /check-endpoint` handler, which resolves and authorizes the monitor,
+performs the check, logs it, and dispatches notifications
 
-[Cron Auth Middleware](/supabase/functions/api/middleware/cron.ts): Validates X-Cron-Secret header or service role credentials
+[CORS Middleware](/supabase/functions/_shared/with-cors.ts): Outermost layer.
+Answers preflights and backfills the canonical `@supabase/supabase-js/cors`
+headers onto responses from layers that short-circuit above the auth gate
+
+[OpenAPI Middleware](/supabase/functions/_shared/with-openapi.ts): Serves the
+document and rejects any path the document does not declare. `document.paths`
+is the route table
+
+[OpenAPI Document](/supabase/functions/_shared/openapi-document.ts): The API
+description, and therefore the route table. Also resolves `info.version` from
+`CURRENT_SHA` and `info.x-environment` from `APP_ENVIRONMENT`
+
+[Monitor Logic](/supabase/functions/_shared/monitor.ts): Capped fetch, pattern
+matching, catastrophic-backtracking screen, and check logging
+
+[Notification Service](/supabase/functions/_shared/notifications.ts): Email
+(Resend) and SMS (Twilio) dispatch, with per-channel results and notification
+logging
+
+[SMS Transport](/supabase/functions/_shared/sms-service.ts): Twilio transport
+with retry
+
+[Function Config](/supabase/functions/_shared/config.ts): Required environment
+(the three `TWILIO_*` values, read at module load), notification link origin,
+and the logger
+
+[Import Map](/supabase/functions/deno.json): Pinned dependency versions for the
+Deno workspace member
 
 ## Database
 
-[Core Schema Migration](/supabase/migrations/20240101000000_create_tables.sql): Creates profiles, monitors, monitor_logs, notifications tables with RLS policies
+The schema is declarative. `supabase/schemas/` is the source of truth; edit
+those files, never Studio, the SQL editor, or a hand-written migration.
+`supabase/migrations/` is generated output by pg-delta and remains the deploy
+artifact.
 
-[Cron Functions Migration](/supabase/migrations/20240101000004_create_cron_functions.sql): pg_cron helpers for scheduling monitor checks, including Vault integration for secrets
+[Declarative Schema](/supabase/schemas/): Source of truth, organized as
+`<schema>/<object-type>/<name>.sql`
 
-[Supabase Config](/supabase/config.toml): Local development configuration for database, auth, storage, and edge runtime
+[Monitors Table](/supabase/schemas/public/tables/monitors.sql): Monitor
+definitions with RLS policies scoped to `auth.uid()`
+
+[Monitor Logs Table](/supabase/schemas/public/tables/monitor_logs.sql): Per-check
+history, readable by the owning user via a join to `monitors`
+
+[Notifications Table](/supabase/schemas/public/tables/notifications.sql): Sent
+notification records
+
+[Profiles Table](/supabase/schemas/public/tables/profiles.sql): User profiles,
+populated by the `on_auth_user_created` trigger
+
+[Cron Headers](/supabase/schemas/public/functions/_get_cron_headers.sql): Reads
+the `sb_secret_...` key from Vault (`supabase/secret_key`) and sends it as
+`apikey`, deliberately with no `Authorization` bearer
+
+[Cron Job Creation](/supabase/schemas/public/functions/create_monitor_cron_job.sql):
+Schedules a `pg_net` HTTP POST per monitor, resolving URL and headers at run
+time
+
+[Check URL](/supabase/schemas/public/functions/_get_monitor_check_url.sql):
+Builds the `/functions/v1/api/check-endpoint` URL from
+`app.settings.api_base_url`
+
+[Generated Types](/supabase/db/database.types.ts): TypeScript types generated
+from the schema (`deno task db:gen-types`)
+
+[Seed Data](/supabase/seed.sql): Applied on `db reset` and when a preview branch
+is created
+
+[Supabase Config](/supabase/config.toml): Local development configuration,
+`[experimental.pgdelta]`, and `verify_jwt = false` for `[functions.api]`
 
 ## CI/CD
 
-[Function Deploy Workflow](/.github/workflows/fns-push.yml): Deploys Edge Functions to Supabase on push to main branch
+[Function Deploy Workflow](/.github/workflows/fns-push.yml): Runs
+`deno task fns:checks`, sets `CURRENT_SHA`, and deploys the Edge Function on
+push to `main`
+
+[Preview Environment Workflow](/.github/workflows/preview-env.yml): Seeds Edge
+Function secrets onto the PR's Supabase preview branch and posts a sticky
+comment with the branch API URL and anon key
 
 ## Development Tasks
 
-[Root Tasks](/deno.json): Deno task definitions for development, building, linting, and database operations
+[Root Tasks](/deno.json): Deno task definitions for development, checks,
+building, and database operations
+
+[Setup Wizards](/scripts/): Interactive wizards for Twilio credentials
+(`setup-twilio`), Supabase branching (`setup-branching`), and Vercel environment
+sync (`setup-vercel`)
 
 ## Optional
+
+### Endpoints
+
+The function is served under `/functions/v1/api`. Two routes exist:
+
+- `POST /check-endpoint` — runs one monitor check. Accepts either a user JWT
+  (verified against the project JWKS) or a Supabase secret key
+  (`apikey: sb_secret_...`), which is what `pg_cron` presents. In user mode the
+  verified JWT subject replaces any `user_id` in the body, and `force` is
+  honoured only in user mode.
+- `GET /openapi.json` — public. The OpenAPI 3.1 document, whose `paths` are the
+  enforced route table. Serving it also proves the function is running.
+
+There is no `/status` route; `/openapi.json` replaced it.
 
 ### Pattern Matching
 
 The monitor check system supports three pattern types:
+
 - `contains`: Case-insensitive substring match with context snippets
 - `not_contains`: Inverse match (content must NOT contain pattern)
 - `regex`: Regular expression match (case-insensitive)
 
-Pattern matching implementation: `/supabase/functions/api/routes/monitor-check.ts:283`
+Pattern matching implementation: `checkPattern` at
+`/supabase/functions/_shared/monitor.ts:359`.
+
+A `regex` pattern is screened by `findUnsafeRegexConstruct`
+(`/supabase/functions/_shared/monitor.ts:203`) and rejected if it can backtrack
+catastrophically — a quantifier applied to a group that can match the same input
+more than one way, such as `(a+)+$`. A match is synchronous and uninterruptible
+on the edge worker, so no timer can stop a runaway one. The screen is a
+heuristic, not a proof; a linear-time engine (RE2 via WASM) is the complete fix
+and is deliberately deferred.
 
 ### Monitor Check Flow
 
 1. User creates monitor via frontend → direct Supabase insert
-2. Frontend calls `create_monitor_cron_job()` database function
-3. pg_cron schedules HTTP POST to `/functions/v1/api/check-endpoint`
-4. Edge Function fetches URL, validates pattern, logs to `monitor_logs`, updates monitor status
-5. If status changes, sends notifications via configured channels
-6. Frontend displays results via Supabase queries or Realtime subscriptions
+2. Frontend calls the `create_monitor_cron_job()` database function
+3. `pg_cron` schedules a `pg_net` HTTP POST of `{ monitor_id, user_id }` to
+   `/functions/v1/api/check-endpoint`
+4. The Edge Function fetches the URL, evaluates the pattern, writes a
+   `monitor_logs` row, and updates `monitors.last_status` / `last_checked`
+5. Notifications are sent on the first check, on a status change, or when a
+   signed-in user passes `force` — see `getNotificationSpec` at
+   `/supabase/functions/_shared/monitor.ts:471`
+6. The frontend re-queries `monitors`, `monitor_logs` and `notifications`
+   directly under RLS. There are no Realtime subscriptions yet.
 
 ### Authentication Architecture
 
-- **Frontend**: Supabase Auth (email/password), authenticated users access own data via RLS
-- **Edge Function**: Cron requests authenticated via `X-Cron-Secret` header or service role key
-- **Database**: All tables have RLS policies scoping access to `auth.uid()`
-- **Secrets**: Stored in Supabase Vault (`cron/secret`, `supabase/anon_key`, `supabase/service_role_key`) with fallback to database settings
+- **Frontend**: Supabase Auth (email/password); authenticated users access their
+  own data via RLS
+- **Edge Function**: `withSupabase` with `auth: ['user', 'secret']`. `user`
+  verifies the JWT against the project JWKS; `secret` matches an `sb_secret_`
+  key in the `apikey` header. `/openapi.json` never reaches this layer, because
+  `withOpenAPI` answers it first
+- **Client privilege**: a user gets the RLS-scoped `ctx.supabase`; cron gets
+  `ctx.supabaseAdmin`, having no `auth.uid()` to scope by. The handler filters
+  by `user_id` regardless, so RLS is a backstop rather than the only control
+- **Platform gate**: `verify_jwt = false` for `[functions.api]`, because the
+  platform's blanket check is equivalent to `auth: 'user'` on every route and
+  would reject both the public document and the cron call. The gate moves into
+  the function, it is not removed
+- **CORS**: the canonical wildcard set from `@supabase/supabase-js/cors`. The
+  API is protected by credentials, not by origin
+- **Database**: all tables have RLS policies scoping access to `auth.uid()`
+- **Secrets**: the cron secret key lives in Supabase Vault
+  (`supabase/secret_key`), with `app.settings.secret_key` as a fallback
 
 ### Limitations
 
+- Sign-up is restricted to `@supabase.io` addresses by the signup form only, and
+  is configurable via `NEXT_PUBLIC_ALLOWED_SIGNUP_DOMAIN` /
+  `NEXT_PUBLIC_ALLOWED_SIGNUP_EMAILS`. Nothing in Postgres or Supabase Auth
+  enforces it
 - Content must exist in raw HTML (no JavaScript-rendered content detection)
-- Monitor checks timeout after 30 seconds
-- Does not respect robots.txt directives
-- Email restriction enforced at application level
+- Monitor checks time out after 30 seconds, covering the body read as well as
+  the connection; bodies are buffered up to 5MB and regex matches against at
+  most the first 512KB
+- Does not respect `robots.txt` directives
+- `pg_cron` has a one-minute floor, and intervals that do not divide evenly into
+  an hour fall back to every five minutes
