@@ -1,3 +1,5 @@
+SET local check_function_bodies = off;
+
 CREATE OR REPLACE FUNCTION public._get_monitor_check_url()
   RETURNS text
   LANGUAGE plpgsql
@@ -21,5 +23,3 @@ BEGIN
   RETURN url;
 END;
 $function$;
-
-GRANT EXECUTE ON FUNCTION "public"."_get_monitor_check_url"() TO PUBLIC, "anon", "authenticated", "postgres", "service_role";

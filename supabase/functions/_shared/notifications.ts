@@ -302,6 +302,10 @@ export class NotificationService {
       })()
       : buildSMS(payload);
 
+    // error_message and message_id were columns nothing ever wrote to, so a
+    // "failed" row recorded that a send failed but never why -- the only copy
+    // of the reason lived in the response body and was gone once the dialog
+    // closed. idx_notifications_message_id exists for the same reason.
     const { error } = await this.supabase.from("notifications").insert({
       monitor_id: payload.monitor.id,
       user_id: payload.monitor.user_id,
@@ -309,6 +313,8 @@ export class NotificationService {
       channel: channel.type,
       message,
       status: result.success ? "sent" : "failed",
+      error_message: result.success ? null : result.error ?? "Unknown error",
+      message_id: result.success ? result.messageId ?? null : null,
     });
 
     if (error) {

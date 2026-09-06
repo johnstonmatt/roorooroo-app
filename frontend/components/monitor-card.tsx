@@ -46,6 +46,13 @@ import type { Monitor, MonitorLog } from "@/lib/db";
 import { useState } from "react";
 import Link from "next/link";
 
+/** One channel's outcome, as /check-endpoint reports it. */
+interface ChannelResult {
+  type: string;
+  success: boolean;
+  error?: string;
+}
+
 /** What a forced check reported, rendered in a dialog instead of alert(). */
 type DebugResult =
   | {
@@ -54,8 +61,34 @@ type DebugResult =
     responseTime: string;
     didNotify: boolean;
     message?: string;
+    channels: ChannelResult[];
   }
   | { ok: false; message: string };
+
+/**
+ * One "Email"/"SMS" row in the result dialog. A failure shows the reason the
+ * transport gave, which is the only place it is visible before the check's
+ * notifications row is written.
+ */
+function ChannelRow({ channel }: { channel: ChannelResult }) {
+  const label = channel.type === "sms"
+    ? "SMS"
+    : channel.type.charAt(0).toUpperCase() + channel.type.slice(1);
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd
+        className={channel.success
+          ? "text-foreground"
+          : "text-destructive break-words"}
+      >
+        {channel.success
+          ? "sent"
+          : `failed — ${channel.error ?? "no reason given"}`}
+      </dd>
+    </>
+  );
+}
 
 interface MonitorCardProps {
   monitor: Monitor;
@@ -181,6 +214,9 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           : "n/a",
         didNotify: Boolean(data.didNotify),
         message: result?.message,
+        // "some notification channels failed" names no channel and gives no
+        // reason. The response carries both per channel; this used to drop them.
+        channels: Array.isArray(data.channels) ? data.channels : [],
       });
 
       // The check wrote new rows, so drop any cached history.
@@ -518,6 +554,12 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
                     </dd>
                   </>
                 )}
+                {debugResult.channels.map((channel, index) => (
+                  <ChannelRow
+                    key={`${channel.type}-${index}`}
+                    channel={channel}
+                  />
+                ))}
               </dl>
             )
             : <FormError message={debugResult?.message} />}
