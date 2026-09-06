@@ -137,7 +137,8 @@ flags.
 - **Email**: Resend API (requires `RESEND_API_KEY`)
 - **SMS**: Twilio API (requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
   `TWILIO_PHONE_NUMBER`)
-- **Implementation**: `supabase/functions/api/lib/notifications.ts`
+- **Implementation**: `supabase/functions/_shared/notifications.ts` and
+  `supabase/functions/_shared/sms-service.ts`
 
 ## Important Patterns
 
@@ -188,12 +189,24 @@ flags.
 
 ### Pattern Matching Types
 
-Monitor checks support three pattern types (see
-`supabase/functions/api/routes/monitor-check.ts:283`):
+Monitor checks support three pattern types (see `checkPattern` in
+`supabase/functions/_shared/monitor.ts`):
 
 - `contains`: Case-insensitive substring match
 - `not_contains`: Inverse of contains
 - `regex`: Regular expression match (case-insensitive)
+
+A `regex` pattern is screened by `findUnsafeRegexConstruct` before it is
+compiled, and rejected if it can backtrack catastrophically -- a quantifier
+applied to a group that can match the same input more than one way, such as
+`(a+)+$`. A match is synchronous and uninterruptible on the edge worker, so
+neither the AbortController nor a timer can stop a runaway one; 47 bytes of
+input is enough to wedge the isolate. The screen is a heuristic, not a proof.
+The complete fix is a linear-time engine (RE2), which would add a WASM
+dependency to the cold-start path and is deliberately deferred.
+
+Regex runs against at most the first 512KB of a page, and any response body is
+capped at 5MB.
 
 ## File Structure
 
@@ -209,11 +222,14 @@ supabase/
   functions/
     deno.json       - import map (Deno workspace member)
     api/index.ts    - the pipeline: openapi -> auth gate -> handler
-    _shared/        - withOpenAPI, openapi-document, check logic
-    index.ts        - Main entry point
-    routes/         - Route handlers
-    middleware/     - CORS, auth, error handling
-    lib/            - Services (notifications, validation)
+    _shared/
+      with-openapi.ts      - route table + document middleware
+      openapi-document.ts  - the OpenAPI document (also the route table)
+      monitor.ts           - fetch, pattern matching, check logging
+      notifications.ts     - email/SMS dispatch and notification logging
+      sms-service.ts       - Twilio transport with retry
+      config.ts            - required env, frontend URL, logger
+      *_test.ts            - unit tests (deno task fns:test)
   schemas/          - Declarative schema (SOURCE OF TRUTH; edit these)
     public/           - tables/, functions/, schema.sql, default_privileges.sql
     auth/             - user-defined objects on Supabase-managed schemas
@@ -243,12 +259,22 @@ scripts/
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (server-only)
 - Auth keys (`SUPABASE_SECRET_KEYS`, `SUPABASE_PUBLISHABLE_KEYS`,
   `SUPABASE_JWKS`) are auto-provisioned by the platform and the CLI
-- `RESEND_API_KEY` - Email notification API key (optional)
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` - SMS
-  notification credentials (optional)
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` -
+  **required**. `_shared/config.ts` reads them at module load, so the function
+  will not boot without all three -- including `/openapi.json`. This is
+  deliberate fail-fast: a deployment missing SMS credentials is misconfigured,
+  and finding out at the first alert is worse than finding out at deploy.
+  `deno task fns:test` supplies placeholders.
+- `RESEND_API_KEY` - Email notification API key (optional; email sends fail
+  cleanly and are reported per channel when it is absent)
+- `NOTIFICATION_FROM_EMAIL` - From address for alert email (optional, defaults
+  to `notifications@roorooroo.com`)
+- `TWILIO_WEBHOOK_URL` - Twilio StatusCallback URL (optional)
 - `FRONTEND_URL` - Local frontend URL for CORS (e.g., `http://localhost:3000`)
 - `PRODUCTION_FRONTEND_URL` - Production frontend URL for CORS (e.g.,
-  `https://roorooroo.app`)
+  `https://roorooroo.com`). Notification links prefer this over `FRONTEND_URL`,
+  falling back to `https://roorooroo.com`.
+- `LOG_LEVEL` - `debug` | `info` | `warn` | `error` (optional, defaults `info`)
 
 ## Preview Environments
 
@@ -315,5 +341,7 @@ especially anything destructive.
 - Users must have `@supabase.io` email
 - Content must exist in raw HTML (no client-rendered content)
 - Does not respect `robots.txt`
-- Monitor checks timeout after 30 seconds (see
-  `supabase/functions/api/routes/monitor-check.ts:223`)
+- Monitor checks timeout after 30 seconds, covering the body read as well as the
+  connection (see `FETCH_TIMEOUT_MS` in `supabase/functions/_shared/monitor.ts`)
+- Regex patterns that can backtrack catastrophically are rejected rather than
+  run; see Pattern Matching Types

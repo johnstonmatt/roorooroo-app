@@ -4,7 +4,8 @@
     "setup-branching": "bash scripts/setup-branching.sh",
     "frontend:build": "cd frontend && pnpm build",
     "fns:deploy": "npx supabase functions deploy",
-    "fns:checks": "deno fmt --check && deno lint ./supabase/functions && deno check ./supabase/functions/api/index.ts",
+    "fns:checks": "deno fmt --check && deno lint ./supabase/functions && deno check ./supabase/functions/api/index.ts && deno task fns:test",
+    "fns:test": "TWILIO_ACCOUNT_SID=ACtest TWILIO_AUTH_TOKEN=test-token TWILIO_PHONE_NUMBER=+15550001111 deno test --allow-net --allow-env ./supabase/functions",
     "frontend:checks": "cd frontend && pnpm lint",
     "checks": {
       "command": "deno task fns:checks && deno task frontend:checks"

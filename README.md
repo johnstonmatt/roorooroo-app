@@ -195,12 +195,22 @@ Edge Function / project secrets (Supabase dashboard or local `.env`)
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes         | Service role key (server‑side only)      |
 | `CRON_SECRET`               | Recommended | Shared secret validated by the function  |
 | `LOG_LEVEL`                 | No          | `debug`                                  |
-| `TWILIO_ACCOUNT_SID`        | If SMS      | Twilio account SID                       |
-| `TWILIO_AUTH_TOKEN`         | If SMS      | Twilio auth token                        |
-| `TWILIO_PHONE_NUMBER`       | If SMS      | Sending phone number                     |
+| `TWILIO_ACCOUNT_SID`        | Yes         | Read at module load; see note below      |
+| `TWILIO_AUTH_TOKEN`         | Yes         | Read at module load; see note below      |
+| `TWILIO_PHONE_NUMBER`       | Yes         | Read at module load; see note below      |
 | `RESEND_API_KEY`            | If Email    | Enables email notifications              |
+| `NOTIFICATION_FROM_EMAIL`   | No          | Defaults `notifications@roorooroo.com`   |
+| `TWILIO_WEBHOOK_URL`        | No          | Twilio `StatusCallback` URL              |
 | `FRONTEND_URL`              | No          | e.g., `http://localhost:3000` (for CORS) |
-| `PRODUCTION_FRONTEND_URL`   | No          | e.g., `https://roorooroo.app` (for CORS) |
+| `PRODUCTION_FRONTEND_URL`   | No          | e.g., `https://roorooroo.com` (for CORS) |
+
+> **The three `TWILIO_*` values are required to boot.**
+> `supabase/functions/_shared/config.ts` reads them at module load, so a
+> deployment without all three fails every request, including
+> `/api/openapi.json`. That is intentional fail-fast: discovering missing SMS
+> credentials at deploy time beats discovering them at the first alert. Use
+> `deno task fns:test`, which supplies placeholders, when running the suite
+> locally.
 
 Supabase Auth (referenced in [`supabase/config.toml`](supabase/config.toml))
 

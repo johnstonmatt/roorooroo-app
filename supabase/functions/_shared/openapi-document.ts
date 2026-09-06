@@ -22,6 +22,68 @@ export const apiDocument: OpenAPIObject = {
   },
   servers: [{ url: "/functions/v1/api" }],
   components: {
+    schemas: {
+      CheckResponse: {
+        type: "object",
+        required: ["success", "data", "message", "timestamp"],
+        properties: {
+          success: {
+            type: "boolean",
+            description: "The check ran and was recorded.",
+          },
+          message: { type: "string" },
+          timestamp: { type: "string", format: "date-time" },
+          data: {
+            type: "object",
+            required: [
+              "monitorId",
+              "status",
+              "responseTime",
+              "statusChanged",
+              "checkedAt",
+              "didNotify",
+            ],
+            properties: {
+              monitorId: { type: "string", format: "uuid" },
+              status: { type: "string", enum: ["found", "not_found", "error"] },
+              responseTime: {
+                type: "integer",
+                description: "Milliseconds to fetch and read the page.",
+              },
+              contentSnippet: { type: "string" },
+              errorMessage: { type: "string" },
+              statusChanged: {
+                type: "boolean",
+                description:
+                  "The status differs from the previous check. Independent of " +
+                  "whether a notification was sent, which `force` also affects.",
+              },
+              checkedAt: { type: "string", format: "date-time" },
+              didNotify: {
+                type: "boolean",
+                description:
+                  "At least one channel accepted the notification. False when " +
+                  "none were configured, none were warranted, or all failed.",
+              },
+              channels: {
+                type: "array",
+                description:
+                  "Per-channel outcome; absent when nothing was sent.",
+                items: {
+                  type: "object",
+                  required: ["type", "success"],
+                  properties: {
+                    type: { type: "string", enum: ["email", "sms"] },
+                    success: { type: "boolean" },
+                    error: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     securitySchemes: {
       // Verified against the project JWKS.
       userJwt: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
@@ -80,7 +142,16 @@ export const apiDocument: OpenAPIObject = {
           },
         },
         responses: {
-          "200": { description: "Check completed" },
+          "200": {
+            description:
+              "Check completed. Every completed check returns this shape, " +
+              "whatever the outcome; `success` is false only on an error status.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CheckResponse" },
+              },
+            },
+          },
           "400": { description: "Monitor inactive, or the body is invalid" },
           "401": { description: "Missing or invalid credentials" },
           "404": {

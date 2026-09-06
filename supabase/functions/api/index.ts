@@ -6,18 +6,75 @@
 import { pipeline } from "@supabase/middleware";
 import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
+import { logger } from "../_shared/config.ts";
 import { apiDocument } from "../_shared/openapi-document.ts";
 import { withOpenAPI } from "../_shared/with-openapi.ts";
 import {
+  type CheckResult,
   getNotificationSpec,
   logMonitorCheck,
   performMonitorCheck,
 } from "../_shared/monitor.ts";
 import {
+  type NotificationResult,
   NotificationService,
   parseNotificationChannels,
 } from "../_shared/notifications.ts";
 import type { Status } from "../_shared/notifications.ts";
+
+interface RequestBody {
+  monitor_id?: string;
+  user_id?: string;
+  force?: boolean;
+}
+
+function errorResponse(
+  status: number,
+  error: string,
+  extra: Record<string, unknown> = {},
+): Response {
+  // `success` means "the check ran", so it is false on every error path. It
+  // used to be seeded from a mutable local, which reported success: false on
+  // one of the completed-check paths too.
+  return Response.json({ success: false, error, ...extra }, { status });
+}
+
+/**
+ * One shape for every completed check, so a caller never has to work out
+ * which branch produced the response. The four return paths this replaced
+ * disagreed on `success`, omitted `contentSnippet`/`checkedAt` in some
+ * branches, and reported `statusChanged: true` unconditionally.
+ */
+function checkResponse(args: {
+  monitorId: string;
+  result: CheckResult;
+  statusChanged: boolean;
+  checkedAt: string;
+  didNotify: boolean;
+  message: string;
+  channels?: NotificationResult[];
+}): Response {
+  return Response.json({
+    success: true,
+    data: {
+      monitorId: args.monitorId,
+      status: args.result.status,
+      responseTime: args.result.responseTime,
+      contentSnippet: args.result.contentSnippet,
+      errorMessage: args.result.errorMessage,
+      statusChanged: args.statusChanged,
+      checkedAt: args.checkedAt,
+      didNotify: args.didNotify,
+      channels: args.channels?.map((r) => ({
+        type: r.channel.type,
+        success: r.success,
+        error: r.error,
+      })),
+    },
+    message: args.message,
+    timestamp: new Date().toISOString(),
+  });
+}
 
 export default {
   fetch: pipeline(
@@ -26,7 +83,6 @@ export default {
       withSupabase<Database>({ auth: ["user", "secret"] }),
     ],
     async (req, ctx) => {
-      let success = false;
       try {
         // Least privilege per caller. A user gets the RLS-scoped client, so
         // their own policies are a backstop and the user_id filter below is
@@ -39,23 +95,15 @@ export default {
           ? ctx.supabase
           : ctx.supabaseAdmin;
 
-        let body: {
-          monitor_id?: string;
-          user_id?: string;
-          force?: boolean;
-        };
+        let body: RequestBody;
         try {
           body = await req.json();
         } catch {
-          return Response.json({ error: "body is not valid JSON" }, {
-            status: 400,
-          });
+          return errorResponse(400, "body is not valid JSON");
         }
 
         if (!body.monitor_id) {
-          return Response.json({ error: "monitor_id is required" }, {
-            status: 400,
-          });
+          return errorResponse(400, "monitor_id is required");
         }
 
         // The security rule: a user-mode caller is pinned to the subject in
@@ -66,10 +114,7 @@ export default {
           : body.user_id;
 
         if (!userId) {
-          return Response.json(
-            { error: "user_id is required for this caller" },
-            { status: 400 },
-          );
+          return errorResponse(400, "user_id is required for this caller");
         }
 
         const { data: row, error: lookupError } = await supabase
@@ -80,10 +125,15 @@ export default {
           .single();
 
         if (lookupError || !row) {
-          return Response.json({
-            error: "Monitor not found or access denied",
+          return errorResponse(404, "Monitor not found or access denied", {
             details: lookupError?.message,
-          }, { status: 404 });
+          });
+        }
+
+        if (!row.is_active) {
+          return errorResponse(400, "Monitor is not active", {
+            message: "Cannot check inactive monitors",
+          });
         }
 
         // Forcing a notification is a debug affordance for a signed-in user.
@@ -91,135 +141,111 @@ export default {
         // check into an alert.
         const force = Boolean(body.force) && ctx.authMode === "user";
 
-        if (!row.is_active) {
-          return Response.json({
-            error: "Monitor is not active",
-            message: "Cannot check inactive monitors",
-            success,
-          }, { status: 400 });
-        }
-
-        // The generated types report these as nullable / raw Json, since jsonb and
-        // a nullable text column carry no shape in the schema. Narrow once here
-        // rather than casting at each use.
+        // The generated types report these as nullable / raw Json, since jsonb
+        // and a nullable text column carry no shape in the schema. Narrow once
+        // here rather than casting at each use.
         const lastStatus = (row.last_status ?? "pending") as Status;
         const notificationChannels = parseNotificationChannels(
           row.notification_channels,
         );
 
-        // Perform the monitor check
         const checkResult = await performMonitorCheck(row);
+        const newStatus = checkResult.status;
+        // Whether the world changed -- independent of whether that earns a
+        // notification, which `force` also influences.
+        const statusChanged = newStatus !== lastStatus;
+        const checkedAt = new Date().toISOString();
 
-        // Log the check result
-        await logMonitorCheck(
-          supabase,
-          row.id,
-          checkResult,
-        );
+        await logMonitorCheck(supabase, row.id, checkResult);
 
-        const lastChecked = new Date().toISOString();
-
-        // Update monitor's last_checked and last_status
-        await supabase
+        const { error: updateError } = await supabase
           .from("monitors")
-          .update({
-            last_checked: lastChecked,
-            last_status: checkResult.status,
-          })
+          .update({ last_checked: checkedAt, last_status: newStatus })
           .eq("id", row.id);
 
-        const newStatus = checkResult.status;
-
-        console.debug(`Check result for monitor ${row.id}:`, checkResult);
-
-        if (!notificationChannels.length) {
-          console.warn(
-            "No notification channels configured, skipping notifications.",
+        // supabase-js resolves with `{ error }` rather than rejecting, so this
+        // has to be read. It previously went unchecked entirely, and a monitor
+        // that failed to record its status would re-alert on every run.
+        if (updateError) {
+          logger.error(
+            `Failed to update monitor ${row.id}: ${updateError.message}`,
           );
-          return Response.json({
-            success,
-            data: {
-              monitorId: row.id,
-              status: newStatus,
-              responseTime: checkResult.responseTime,
-              didNotify: false,
-            },
-            message:
-              "Monitor check completed, but no notification channels configured",
-            timestamp: new Date().toISOString(),
-          });
         }
 
-        const notificationService = new NotificationService(supabase);
+        logger.debug(`Check result for monitor ${row.id}:`, checkResult);
+
+        if (!notificationChannels.length) {
+          logger.warn(
+            "No notification channels configured, skipping notifications.",
+          );
+          return checkResponse({
+            monitorId: row.id,
+            result: checkResult,
+            statusChanged,
+            checkedAt,
+            didNotify: false,
+            message:
+              "Monitor check completed, but no notification channels configured",
+          });
+        }
 
         const notificationSpec = getNotificationSpec(
           lastStatus,
           newStatus,
-          // Already restricted to user-mode callers above.
           force,
         );
 
         if (!notificationSpec) {
-          console.debug(
-            "No status change or no notification needed, skipping.",
-          );
-          return Response.json({
-            success: true,
-            data: {
-              monitorId: row.id,
-              status: newStatus,
-              responseTime: checkResult.responseTime,
-              contentSnippet: checkResult.contentSnippet,
-              errorMessage: checkResult.errorMessage,
-              statusChanged: false,
-              checkedAt: lastChecked,
-              didNotify: false,
-            },
+          logger.debug("No status change or no notification needed, skipping.");
+          return checkResponse({
+            monitorId: row.id,
+            result: checkResult,
+            statusChanged,
+            checkedAt,
+            didNotify: false,
             message: "Monitor check completed successfully | no status change",
-            timestamp: new Date().toISOString(),
           });
         }
 
-        console.debug(
-          "Status changed and notifications configured, evaluating notifications...",
-        );
-
-        try {
-          await notificationService.sendNotifications({
+        const results = await new NotificationService(supabase)
+          .sendNotifications({
             monitor: row,
             type: notificationSpec.type,
             reason: notificationSpec.reason,
             contentSnippet: checkResult.contentSnippet,
+            errorMessage: checkResult.errorMessage,
           }, notificationChannels);
-          success = true;
-        } catch (error) {
-          console.error("Failed to send notifications:", error);
+
+        // sendNotifications catches per-channel failures and never rejects, so
+        // "it did not throw" says nothing. Only the results do.
+        const didNotify = results.some((r) => r.success);
+        const failed = results.filter((r) => !r.success);
+
+        if (failed.length) {
+          logger.error(
+            `${failed.length}/${results.length} notification channel(s) failed for monitor ${row.id}: ` +
+              failed.map((r) => `${r.channel.type}: ${r.error}`).join("; "),
+          );
         }
 
-        return Response.json({
-          success,
-          data: {
-            monitorId: row.id,
-            status: newStatus,
-            responseTime: checkResult.responseTime,
-            contentSnippet: checkResult.contentSnippet,
-            errorMessage: checkResult.errorMessage,
-            statusChanged: !!notificationSpec,
-            checkedAt: lastChecked,
-            // The other return paths all report didNotify; without it here the
-            // one path that actually sends is the only one a caller cannot read.
-            didNotify: success,
-          },
-          message: "Monitor check completed successfully",
-          timestamp: new Date().toISOString(),
+        return checkResponse({
+          monitorId: row.id,
+          result: checkResult,
+          statusChanged,
+          checkedAt,
+          didNotify,
+          channels: results,
+          message: didNotify
+            ? failed.length
+              ? "Monitor check completed; some notification channels failed"
+              : "Monitor check completed successfully"
+            : "Monitor check completed, but every notification channel failed",
         });
       } catch (error) {
-        console.error("Error processing monitor check:", error);
-        return Response.json({
-          error: "Internal server error",
-          success,
+        logger.error("Error processing monitor check:", error);
+        return errorResponse(500, "Internal server error", {
           details: error instanceof Error ? error.message : String(error),
-        }, { status: 500 });
+        });
       }
     },
   ),

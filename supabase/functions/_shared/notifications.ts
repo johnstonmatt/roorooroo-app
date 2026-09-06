@@ -3,6 +3,7 @@ import { type SMSMessage, type SMSResult, SMSService } from "./sms-service.ts";
 import { Resend } from "resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../db/database.types.ts";
+import { frontendUrl, logger } from "./config.ts";
 
 export type Status = "found" | "not_found" | "error" | "pending";
 
@@ -95,6 +96,38 @@ export interface NotificationResult {
   error?: string;
 }
 
+/**
+ * Escape values that end up in the HTML body.
+ *
+ * contentSnippet is a slice of a page we do not control, so it is markup by
+ * definition. Interpolating it raw would let a watched page inject arbitrary
+ * HTML into the alert email.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * The Resend client is stateless and holds only the API key, so one per
+ * isolate is enough. Building it per send re-ran that setup on every email.
+ */
+let resendClient: Resend | null = null;
+function getResend(apiKey: string): Resend {
+  if (!resendClient) resendClient = new Resend(apiKey);
+  return resendClient;
+}
+
+/** Where alert email comes from. Overridable so a preview branch can differ. */
+function fromAddress(): string {
+  return Deno.env.get("NOTIFICATION_FROM_EMAIL") ??
+    "notifications@roorooroo.com";
+}
+
 export class NotificationService {
   private smsService: SMSService;
 
@@ -108,40 +141,47 @@ export class NotificationService {
   }
 
   /**
-   * Send notifications to all configured channels
+   * Send notifications to all configured channels.
+   *
+   * Never rejects: a per-channel failure is reported in the returned results,
+   * so the caller must read them to know whether anything was actually
+   * delivered. Treating "did not throw" as success reported didNotify: true
+   * during a total Resend and Twilio outage.
    */
   async sendNotifications(
     payload: NotificationPayload,
     channels: NotificationChannel[],
   ): Promise<NotificationResult[]> {
-    const results: NotificationResult[] = [];
-
-    const notificationPromises = channels.map((channel) =>
-      this.sendSingleNotification(payload, channel)
+    const settled = await Promise.allSettled(
+      channels.map((channel) => this.sendSingleNotification(payload, channel)),
     );
 
-    const settledResults = await Promise.allSettled(notificationPromises);
-
-    for (const settled of settledResults) {
-      if (settled.status === "fulfilled") {
-        results.push(settled.value);
-        await this.logNotification(
-          payload,
-          settled.value.channel,
-          settled.value,
-        );
-      } else {
-        console.error("Notification promise rejected:", settled.reason);
-        console.error("Failed Payload:", JSON.stringify(payload));
-        results.push({
-          success: false,
-          payload,
-          channel: channels[settledResults.indexOf(settled)],
-          error: settled.reason instanceof Error
-            ? settled.reason.message
-            : "Unknown error",
-        });
+    const results: NotificationResult[] = settled.map((entry, index) =>
+      entry.status === "fulfilled" ? entry.value : {
+        success: false,
+        payload,
+        // Indexing by position: allSettled preserves input order, whereas the
+        // previous indexOf(settled) matched the first structurally equal
+        // entry and mislabelled the channel whenever two failed alike.
+        channel: channels[index],
+        error: entry.reason instanceof Error
+          ? entry.reason.message
+          : "Unknown error",
       }
+    );
+
+    for (const [index, entry] of settled.entries()) {
+      if (entry.status === "rejected") {
+        logger.error(
+          `Notification to ${channels[index].type} rejected:`,
+          entry.reason,
+        );
+      }
+      await this.logNotification(
+        payload,
+        results[index].channel,
+        results[index],
+      );
     }
 
     return results;
@@ -177,29 +217,28 @@ export class NotificationService {
     payload: NotificationPayload,
     channel: NotificationChannel,
   ): Promise<NotificationResult> {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    const apiKey = Deno.env.get("RESEND_API_KEY");
 
-    if (!RESEND_API_KEY) {
-      console.error("'RESEND_API_KEY' is not set");
-      return {
-        success: false,
-        channel,
-        error: "Email service not configured",
-      };
+    if (!apiKey) {
+      logger.error("'RESEND_API_KEY' is not set");
+      return { success: false, channel, error: "Email service not configured" };
     }
 
-    const resend = new Resend(RESEND_API_KEY);
+    const { subject, text, html } = buildEmail(payload);
 
     let response;
     try {
-      response = await resend.emails.send({
-        from: "notifications@roorooroo.com",
+      response = await getResend(apiKey).emails.send({
+        from: fromAddress(),
         to: channel.address,
-        subject: this.getEmailSubject(payload),
-        html: this.formatEmailMessage(payload),
+        subject,
+        // Both parts: the body used to be newline-separated plain text handed
+        // to `html`, which every client rendered as one unbroken paragraph.
+        text,
+        html,
       });
     } catch (error) {
-      console.error("Failed to send email:", JSON.stringify(error));
+      logger.error("Failed to send email:", error);
       return {
         success: false,
         channel,
@@ -208,31 +247,28 @@ export class NotificationService {
     }
 
     if (response?.error) {
-      console.error("resend failed to send", JSON.stringify(response.error));
-      console.error("Failed Payload:", JSON.stringify(payload));
+      logger.error("resend failed to send:", response.error);
+      return { success: false, channel, error: response.error.message };
+    }
+
+    if (!response?.data?.id) {
       return {
         success: false,
         channel,
-        error: response.error.message,
+        error: "Resend returned no message id",
       };
     }
 
-    return {
-      success: true,
-      channel,
-      messageId: response.data.id,
-    };
+    return { success: true, channel, messageId: response.data.id };
   }
 
   private async sendSMSNotification(
     payload: NotificationPayload,
     channel: NotificationChannel,
   ): Promise<NotificationResult> {
-    const message = this.formatSMSMessage(payload);
-
     const smsMessage: SMSMessage = {
       to: channel.address,
-      message,
+      message: buildSMS(payload),
       monitorId: payload.monitor.id,
       userId: payload.monitor.user_id,
     };
@@ -247,120 +283,143 @@ export class NotificationService {
     };
   }
 
-  private formatEmailMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage, reason } = payload;
-
-    let message = `${headline(reason)}\n\n`;
-
-    switch (type) {
-      case "found":
-        message += `Your watcher "${monitor.name}" found a match!\n\n`;
-        message += `Website: ${monitor.url}\n`;
-        message += `Pattern: "${monitor.pattern}"\n`;
-        if (contentSnippet) {
-          message += `\nContent found: "${contentSnippet}"\n`;
-        }
-        break;
-
-      case "not_found":
-        message +=
-          `Your watcher "${monitor.name}" doesn't match your pattern!\n\n`;
-        message += `Website: ${monitor.url}\n`;
-        message += `Pattern: "${monitor.pattern}"\n`;
-        message += `\nThe pattern is no longer found on the page.\n`;
-        break;
-
-      case "error":
-        message +=
-          `Your watcher "${monitor.name}" encountered an error at ${monitor.url}!\n\n`;
-        message += `Website: ${monitor.url}\n`;
-        if (errorMessage) {
-          message += `Error: ${errorMessage}\n`;
-        }
-        break;
-    }
-
-    message += `\nTime: ${new Date().toLocaleString()}\n`;
-    message += `\nView your dashboard: ${
-      Deno.env.get("FRONTEND_URL") || "https://roorooroo.app"
-    }/dashboard`;
-
-    return message;
-  }
-
-  private formatSMSMessage(payload: NotificationPayload): string {
-    const { monitor, type, contentSnippet, errorMessage, reason } = payload;
-
-    let message = `${headline(reason)}\n\n`;
-
-    switch (type) {
-      case "found":
-        message += `"${monitor.name}" found a match!`;
-        if (contentSnippet && contentSnippet.length < 50) {
-          message += ` Found: "${contentSnippet}"`;
-        }
-        break;
-
-      case "not_found":
-        message += `"${monitor.name}" did not find a match!`;
-        break;
-
-      case "error":
-        message += `"${monitor.name}" error loading your page!`;
-        if (errorMessage && errorMessage.length < 50) {
-          message += ` ${errorMessage}`;
-        }
-        break;
-    }
-
-    message += ` ${monitor.url}`;
-
-    if (message.length > 160) {
-      message = message.substring(0, 157) + "...";
-    }
-
-    return message;
-  }
-
-  private getEmailSubject(payload: NotificationPayload): string {
-    const { monitor, type, reason } = payload;
-
-    const subjectPrefix = subjectPrefixFor(reason);
-
-    switch (type) {
-      case "found":
-        return `${subjectPrefix} ${monitor.name} - Pattern Found`;
-      case "not_found":
-        return `${subjectPrefix} ${monitor.name} - Pattern Not Found`;
-      case "error":
-        return `${subjectPrefix} ${monitor.name} - Error`;
-      default:
-        return `${subjectPrefix} ${monitor.name}`;
-    }
-  }
-
+  /**
+   * Record what was sent.
+   *
+   * supabase-js resolves with `{ error }` instead of rejecting, so the
+   * try/catch this replaced could never fire and every failed insert was
+   * discarded silently.
+   */
   private async logNotification(
     payload: NotificationPayload,
     channel: NotificationChannel,
     result: NotificationResult,
   ): Promise<void> {
-    try {
-      const message = channel.type === "email"
-        ? `Subject: ${this.getEmailSubject(payload)}\n\n${
-          this.formatEmailMessage(payload)
-        }`
-        : this.formatSMSMessage(payload);
+    const message = channel.type === "email"
+      ? (() => {
+        const { subject, text } = buildEmail(payload);
+        return `Subject: ${subject}\n\n${text}`;
+      })()
+      : buildSMS(payload);
 
-      await this.supabase.from("notifications").insert({
-        monitor_id: payload.monitor.id,
-        user_id: payload.monitor.user_id,
-        type: payload.type,
-        channel: channel.type,
-        message,
-        status: result.success ? "sent" : "failed",
-      });
-    } catch (error) {
-      console.error("Failed to log notification:", error);
+    const { error } = await this.supabase.from("notifications").insert({
+      monitor_id: payload.monitor.id,
+      user_id: payload.monitor.user_id,
+      type: payload.type,
+      channel: channel.type,
+      message,
+      status: result.success ? "sent" : "failed",
+    });
+
+    if (error) {
+      logger.error(
+        `Failed to log ${channel.type} notification for monitor ${payload.monitor.id}: ${error.message}`,
+      );
     }
   }
+}
+
+/** The lines of an alert, shared by the text and HTML renderings. */
+function bodyLines(payload: NotificationPayload): string[] {
+  const { monitor, type, contentSnippet, errorMessage } = payload;
+  const lines: string[] = [];
+
+  switch (type) {
+    case "found":
+      lines.push(`Your watcher "${monitor.name}" found a match!`);
+      lines.push(`Website: ${monitor.url}`);
+      lines.push(`Pattern: "${monitor.pattern}"`);
+      if (contentSnippet) lines.push(`Content found: "${contentSnippet}"`);
+      break;
+
+    case "not_found":
+      lines.push(`Your watcher "${monitor.name}" doesn't match your pattern!`);
+      lines.push(`Website: ${monitor.url}`);
+      lines.push(`Pattern: "${monitor.pattern}"`);
+      lines.push("The pattern is no longer found on the page.");
+      break;
+
+    case "error":
+      lines.push(
+        `Your watcher "${monitor.name}" encountered an error at ${monitor.url}!`,
+      );
+      lines.push(`Website: ${monitor.url}`);
+      if (errorMessage) lines.push(`Error: ${errorMessage}`);
+      break;
+  }
+
+  lines.push(`Time: ${new Date().toISOString()}`);
+  return lines;
+}
+
+export function buildEmail(
+  payload: NotificationPayload,
+): { subject: string; text: string; html: string } {
+  const { monitor, type, reason } = payload;
+  const prefix = subjectPrefixFor(reason);
+  const dashboard = `${frontendUrl()}/dashboard`;
+
+  const subject = type === "found"
+    ? `${prefix} ${monitor.name} - Pattern Found`
+    : type === "not_found"
+    ? `${prefix} ${monitor.name} - Pattern Not Found`
+    : type === "error"
+    ? `${prefix} ${monitor.name} - Error`
+    : `${prefix} ${monitor.name}`;
+
+  const lines = bodyLines(payload);
+
+  const text = [
+    headline(reason),
+    "",
+    ...lines,
+    "",
+    `View your dashboard: ${dashboard}`,
+  ].join("\n");
+
+  const html = [
+    `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;color:#111">`,
+    `<h2 style="margin:0 0 16px">${escapeHtml(headline(reason))}</h2>`,
+    ...lines.map((line) => `<p style="margin:0 0 8px">${escapeHtml(line)}</p>`),
+    `<p style="margin:20px 0 0"><a href="${
+      escapeHtml(dashboard)
+    }">View your dashboard</a></p>`,
+    `</div>`,
+  ].join("");
+
+  return { subject, text, html };
+}
+
+export function buildSMS(payload: NotificationPayload): string {
+  const { monitor, type, contentSnippet, errorMessage, reason } = payload;
+
+  let message = `${headline(reason)}\n\n`;
+
+  switch (type) {
+    case "found":
+      message += `"${monitor.name}" found a match!`;
+      if (contentSnippet && contentSnippet.length < 50) {
+        message += ` Found: "${contentSnippet}"`;
+      }
+      break;
+
+    case "not_found":
+      message += `"${monitor.name}" did not find a match!`;
+      break;
+
+    case "error":
+      message += `"${monitor.name}" error loading your page!`;
+      if (errorMessage && errorMessage.length < 50) {
+        message += ` ${errorMessage}`;
+      }
+      break;
+  }
+
+  message += ` ${monitor.url}`;
+
+  if (message.length > 160) {
+    message = message.substring(0, 157) + "...";
+  }
+
+  return message;
 }

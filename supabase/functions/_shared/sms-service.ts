@@ -13,26 +13,58 @@ export interface SMSResult {
   error?: string;
 }
 
+/**
+ * A non-2xx response from Twilio, carrying the two things that decide whether
+ * a retry is worth attempting.
+ *
+ * The retry logic used to match on `error.code`, but the thrown value was a
+ * bare `Error` built from the response body, so it never carried one and
+ * every Twilio-side failure -- including 20429 rate limiting, which the
+ * retryable list explicitly names -- gave up after a single attempt.
+ */
+class TwilioRequestError extends Error {
+  constructor(
+    message: string,
+    readonly code: number | undefined,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "TwilioRequestError";
+  }
+}
+
+/** Twilio error codes worth a second attempt. */
+const RETRYABLE_TWILIO_CODES = new Set([
+  20429,
+  21610,
+  30001,
+  30002,
+  30003,
+  30004,
+  30005,
+  30006,
+]);
+
+const RETRYABLE_NETWORK_MARKERS = [
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "connection closed",
+  "error sending request",
+];
+
 export class SMSService {
   private readonly RETRY_ATTEMPTS = 3;
   private readonly RETRY_DELAYS = [1000, 4000, 16000];
 
-  constructor() {
-    logger.info("SMS Service initialized for Deno environment");
-  }
-
   async sendSMS(message: SMSMessage): Promise<SMSResult> {
     try {
-      const result = await this.sendWithRetry(message);
-
-      return result;
+      return await this.sendWithRetry(message);
     } catch (error) {
       logger.error("SMS Service Error:", error);
       return {
         success: false,
-        error: error instanceof Error
-          ? error.message
-          : "Unknown error occurred",
+        error: this.sanitizeErrorMessage(error),
       };
     }
   }
@@ -54,27 +86,29 @@ export class SMSService {
       const response = await this.makeTwilioRequest("Messages", "POST", body);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Twilio API error: ${errorData.message || response.status}`,
+        // Twilio returns JSON for API errors, but an edge/proxy failure can
+        // return HTML. Parsing unguarded turned a clean 503 into an opaque
+        // SyntaxError and lost the status code with it.
+        const payload = await this.readJsonSafely(response);
+        throw new TwilioRequestError(
+          `Twilio API error (HTTP ${response.status}): ${
+            payload?.message ?? response.statusText ?? "unknown"
+          }`,
+          typeof payload?.code === "number" ? payload.code : undefined,
+          response.status,
         );
       }
 
       const twilioMessage = await response.json();
 
-      if (config.app.environment === "development") {
-        logger.info("SMS sent successfully:", {
-          messageId: twilioMessage.sid,
-          to: message.to.replace(/\d(?=\d{4})/g, "*"),
-          userId: message.userId,
-          monitorId: message.monitorId,
-        });
-      }
-
-      return {
-        success: true,
+      logger.debug("SMS sent successfully:", {
         messageId: twilioMessage.sid,
-      };
+        to: message.to.replace(/\d(?=\d{4})/g, "*"),
+        userId: message.userId,
+        monitorId: message.monitorId,
+      });
+
+      return { success: true, messageId: twilioMessage.sid };
     } catch (error) {
       logger.error(`SMS send attempt ${attempt + 1} failed:`, {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -98,6 +132,16 @@ export class SMSService {
     }
   }
 
+  private async readJsonSafely(
+    response: Response,
+  ): Promise<{ message?: string; code?: number } | null> {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
   private async makeTwilioRequest(
     endpoint: string,
     method: "GET" | "POST",
@@ -110,90 +154,49 @@ export class SMSService {
       `${config.twilio.accountSid}:${config.twilio.authToken}`,
     );
 
-    const headers: Record<string, string> = {
-      "Authorization": `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    };
-
     return await fetch(url, {
       method,
-      headers,
+      headers: {
+        "Authorization": `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
       body: method === "POST" ? body : undefined,
     });
   }
 
   private sanitizeErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-      if (config.app.environment === "production") {
-        return "Failed to send SMS. Please try again later.";
-      }
-      return error.message;
+    if (config.app.environment === "production") {
+      return "Failed to send SMS. Please try again later.";
     }
-
+    if (error instanceof Error) return error.message;
     if (
       typeof error === "object" && error !== null &&
       "message" in (error as Record<string, unknown>)
     ) {
-      return config.app.environment === "production"
-        ? "Failed to send SMS. Please try again later."
-        : (error as { message?: string }).message ?? "Unknown error";
+      return String(
+        (error as { message?: unknown }).message ?? "Unknown error",
+      );
     }
-
     return "Failed to send SMS";
   }
 
-  private isRetryableError(error: unknown): boolean {
-    const retryableErrorCodes = [
-      20429,
-      21610,
-      30001,
-      30002,
-      30003,
-      30004,
-      30005,
-      30006,
-    ];
-
-    const code = (typeof error === "object" && error !== null &&
-        "code" in (error as Record<string, unknown>))
-      ? (error as { code?: unknown }).code
-      : undefined;
-    if (typeof code === "number" && retryableErrorCodes.includes(code)) {
-      return true;
+  isRetryableError(error: unknown): boolean {
+    if (error instanceof TwilioRequestError) {
+      if (error.code !== undefined && RETRYABLE_TWILIO_CODES.has(error.code)) {
+        return true;
+      }
+      // Rate limiting and Twilio-side faults are transient regardless of
+      // whether a machine-readable code came back with them.
+      return error.status === 429 || error.status >= 500;
     }
 
-    const message = (typeof error === "object" && error !== null &&
-        "message" in (error as Record<string, unknown>))
-      ? (error as { message?: unknown }).message
-      : undefined;
-    if (
-      typeof message === "string" && (
-        message.includes("ECONNRESET") ||
-        message.includes("ETIMEDOUT") ||
-        message.includes("ENOTFOUND")
-      )
-    ) {
-      return true;
-    }
+    const message = error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null &&
+          "message" in (error as Record<string, unknown>)
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
 
-    return false;
-  }
-
-  isConfigured(): boolean {
-    return !!(
-      config.twilio.accountSid &&
-      config.twilio.authToken &&
-      config.twilio.phoneNumber
-    );
-  }
-
-  getHealthStatus(): {
-    configured: boolean;
-    environment: string;
-  } {
-    return {
-      configured: this.isConfigured(),
-      environment: config.app.environment,
-    };
+    return RETRYABLE_NETWORK_MARKERS.some((marker) => message.includes(marker));
   }
 }
