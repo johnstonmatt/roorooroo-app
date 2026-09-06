@@ -34,8 +34,16 @@ export async function apiClient(
   const { data: { session } } = await supabase.auth.getSession();
 
   // Single "api" function; `endpoint` is a route within it (e.g. "/status").
+  // Derived from the Supabase URL rather than configured separately: auth and
+  // the Edge Function must come from the SAME project, because the function
+  // verifies the browser's JWT against that project's JWKS and a token minted
+  // by a different project can never match by `kid`. Deriving keeps the two in
+  // step wherever the build points -- local, a preview branch, or production.
+  // NEXT_PUBLIC_API_BASE_URL stays as an escape hatch for pointing elsewhere.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    "http://localhost:54321";
   const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:54321/functions/v1/api").replace(/\/+$/, "");
+    `${supabaseUrl}/functions/v1/api`).replace(/\/+$/, "");
   const url = `${apiBaseUrl}${endpoint}`;
 
   const requestHeaders: Record<string, string> = {
