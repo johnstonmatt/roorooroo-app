@@ -5,16 +5,22 @@ import { api } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface Status {
-  service: string;
-  version: string;
-  timestamp: string;
-  uptime: number;
-  environment: string;
+/** The slice of the OpenAPI document this badge renders. */
+interface ApiDocument {
+  info: {
+    title: string;
+    version: string;
+    "x-environment"?: string;
+  };
 }
 
-export default function StatusTag() {
-  const [status, setStatus] = useState<Status | null>(null);
+/**
+ * The API health strip. It draws no background of its own -- whichever surface
+ * renders it (the marketing footer, the app shell) owns that, so the strip can
+ * never disagree with the section it sits in.
+ */
+export default function StatusTag({ className }: { className?: string }) {
+  const [doc, setDoc] = useState<ApiDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,9 +28,17 @@ export default function StatusTag() {
     let isMounted = true;
     async function loadStatus() {
       try {
-        const res: Status = await api.get("/status");
+        // Serving the document also proves the function is deployed and up,
+        // so it doubles as the liveness check the old /status endpoint was.
+        const res: ApiDocument | null = await api.get("/openapi.json");
+        // api.get yields null for a response it does not recognize as JSON.
+        // Without this, that silently renders as "Disconnected" with nothing
+        // logged -- which is exactly how it failed once already.
+        if (!res?.info) {
+          throw new Error("API returned no usable OpenAPI document");
+        }
         if (isMounted) {
-          setStatus(res);
+          setDoc(res);
         }
       } catch (err) {
         console.error("Error fetching status:", err);
@@ -48,7 +62,7 @@ export default function StatusTag() {
         text: "Loading",
       } as const;
     }
-    if (error || !status) {
+    if (error || !doc) {
       return {
         badge: "bg-red-100 text-red-700",
         dot: "bg-red-500",
@@ -63,11 +77,16 @@ export default function StatusTag() {
   };
 
   const styles = getBadgeClasses();
-  const versionText = status?.version ? `${status.version}` : undefined;
-  const envText = status?.environment;
+  const versionText = doc?.info.version;
+  const envText = doc?.info["x-environment"];
 
   return (
-    <div className="w-full flex items-center justify-center gap-2 bg-transparent pb-0 mb-0">
+    <div
+      className={cn(
+        "w-full flex items-center justify-center gap-2 py-2",
+        className,
+      )}
+    >
       <Badge
         variant="outline"
         className={cn(
@@ -80,14 +99,14 @@ export default function StatusTag() {
         <span>{styles.text}</span>
       </Badge>
 
-      {status && (
+      {doc && (
         <Badge
           variant="outline"
           className={cn(
             "bg-blue-100 text-blue-700 inline-flex items-center gap-1 border-transparent px-2 py-0.5 text-xs leading-none",
           )}
           aria-label="version"
-          title={status.timestamp}
+          title={doc.info.title}
         >
           <span className="w-2 h-2 rounded-full bg-gray-500" />
           <span>

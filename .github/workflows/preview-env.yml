@@ -1,0 +1,187 @@
+name: Preview Supabase
+
+# Surfaces the Supabase preview branch created for this PR by the Supabase
+# GitHub integration, so a reviewer can point a local frontend at the PR's own
+# database instead of hunting for its credentials in the dashboard.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    # This repo is public. `pull_request` deliberately withholds secrets from
+    # fork PRs, and Supabase only creates preview branches for branches that
+    # live in this repo, so there is nothing to report for a fork.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Resolve the Supabase preview branch
+        id: branch
+        run: |
+          set -uo pipefail
+
+          # Provisioning is asynchronous, so the branch is usually not ready the
+          # instant the PR opens.
+          out=""
+          for attempt in $(seq 1 20); do
+            if out=$(supabase branches get "$BRANCH" --project-ref "$PROJECT_ID" -o env 2>/dev/null); then
+              break
+            fi
+            echo "attempt $attempt: preview branch '$BRANCH' not ready yet"
+            out=""
+            sleep 15
+          done
+
+          if [ -z "$out" ]; then
+            echo "Preview branch '$BRANCH' did not become available." >&2
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Match defensively across possible key spellings. Only the API URL
+          # and the publishable anon key are ever extracted; Postgres
+          # connection strings are never written to a comment.
+          api_url=$(printf '%s\n' "$out" | sed -n 's/^\(SUPABASE_URL\|API_URL\|NEXT_PUBLIC_SUPABASE_URL\)="\{0,1\}\([^"]*\)"\{0,1\}$/\2/p' | head -1)
+          anon_key=$(printf '%s\n' "$out" | sed -n 's/^\(ANON_KEY\|SUPABASE_ANON_KEY\|NEXT_PUBLIC_SUPABASE_ANON_KEY\|PUBLISHABLE_KEY\)="\{0,1\}\([^"]*\)"\{0,1\}$/\2/p' | head -1)
+
+          if [ -z "$api_url" ]; then
+            echo "Could not read an API URL from 'supabase branches get' output." >&2
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The branch's own project ref. Its Edge Function secrets are set
+          # against this, not against production's ref. Preview branches are
+          # always served from <ref>.supabase.co.
+          branch_ref=$(printf '%s' "$api_url" | sed -E 's#^https?://([^.]+)\.supabase\.[a-z]+/?$#\1#')
+
+          {
+            echo "found=true"
+            echo "api_url=$api_url"
+            echo "anon_key=$anon_key"
+            echo "branch_ref=$branch_ref"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push Edge Function secrets to the preview branch
+        # Preview branches do not inherit Edge Function secrets from
+        # production. supabase/functions/_shared/config.ts reads the three
+        # TWILIO_* values at module load and throws without them, so an
+        # unseeded branch serves 500 WORKER_ERROR on every route -- including
+        # the public /api/openapi.json the frontend's status badge polls.
+        if: steps.branch.outputs.found == 'true'
+        env:
+          BRANCH_REF: ${{ steps.branch.outputs.branch_ref }}
+          # head.sha, not github.sha: on a pull_request event the latter is the
+          # ephemeral merge commit, which matches nothing the reviewer can see.
+          CURRENT_SHA: ${{ github.event.pull_request.head.sha }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFICATION_FROM_EMAIL: ${{ secrets.NOTIFICATION_FROM_EMAIL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$BRANCH_REF" ]; then
+            echo "::error::Could not derive the preview branch project ref."
+            exit 1
+          fi
+
+          # These three are required to boot. Failing here is the point: a
+          # green check on a branch whose API cannot start is worse than a
+          # red one that names the missing secret.
+          missing=""
+          for name in TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_PHONE_NUMBER; do
+            if [ -z "${!name:-}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required repo secret(s):$missing"
+            echo "Set them with: gh secret set <NAME>"
+            exit 1
+          fi
+
+          # Values go via a 0600 file rather than argv, so they never appear
+          # in a process listing on the runner.
+          umask 077
+          env_file=$(mktemp)
+          trap 'rm -f "$env_file"' EXIT
+
+          {
+            printf 'TWILIO_ACCOUNT_SID=%s\n' "$TWILIO_ACCOUNT_SID"
+            printf 'TWILIO_AUTH_TOKEN=%s\n' "$TWILIO_AUTH_TOKEN"
+            printf 'TWILIO_PHONE_NUMBER=%s\n' "$TWILIO_PHONE_NUMBER"
+            # Read by _shared/openapi-document.ts for info.version, which the
+            # frontend status badge renders. Without it a preview reports
+            # "v0.0.0" and there is no way to tell which commit is live.
+            printf 'CURRENT_SHA=%s\n' "$CURRENT_SHA"
+            # Without this the branch reports itself as "production", because
+            # the fallback keys off DENO_DEPLOYMENT_ID, which is set here too.
+            printf 'APP_ENVIRONMENT=preview\n'
+          } > "$env_file"
+
+          # Optional: email notifications degrade gracefully without these,
+          # since notifications.ts reads them at point of use.
+          if [ -n "${RESEND_API_KEY:-}" ]; then
+            printf 'RESEND_API_KEY=%s\n' "$RESEND_API_KEY" >> "$env_file"
+          else
+            echo "::warning::RESEND_API_KEY is not set; email notifications will fail on this branch."
+          fi
+          if [ -n "${NOTIFICATION_FROM_EMAIL:-}" ]; then
+            printf 'NOTIFICATION_FROM_EMAIL=%s\n' "$NOTIFICATION_FROM_EMAIL" >> "$env_file"
+          fi
+
+          supabase secrets set --env-file "$env_file" --project-ref "$BRANCH_REF"
+          echo "seeded Edge Function secrets on $BRANCH_REF"
+
+      - name: Post or update the preview comment
+        if: steps.branch.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          API_URL: ${{ steps.branch.outputs.api_url }}
+          ANON_KEY: ${{ steps.branch.outputs.anon_key }}
+        run: |
+          set -euo pipefail
+          marker="<!-- preview-env -->"
+
+          body="$marker
+          ### 🐕 Preview database
+
+          This PR has its own Supabase branch. Point a local frontend at it by
+          putting these in \`frontend/.env.local\`:
+
+          \`\`\`
+          NEXT_PUBLIC_SUPABASE_URL=$API_URL
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
+          \`\`\`
+
+          It runs \`supabase/migrations/\` and \`supabase/seed.sql\`, and starts
+          with no production data. It is deleted when this PR closes."
+
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --jq \
+            "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty")
+
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$existing" -f body="$body" >/dev/null
+            echo "updated existing preview comment"
+          else
+            gh api --method POST "repos/$REPO/issues/$PR/comments" -f body="$body" >/dev/null
+            echo "created preview comment"
+          fi

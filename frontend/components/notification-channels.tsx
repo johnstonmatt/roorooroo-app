@@ -13,12 +13,7 @@ import {
   type PhoneValidationResult,
   validatePhoneNumber,
 } from "@/lib/phone-validation";
-
-export interface NotificationChannel {
-  type: "email" | "sms";
-  address: string;
-  id?: string; // Optional ID for tracking
-}
+import type { NotificationChannel } from "@/lib/db";
 
 export interface NotificationChannelsProps {
   channels: NotificationChannel[];
@@ -108,7 +103,7 @@ export function NotificationChannels({
     const newChannel: NotificationChannel = {
       type: "email",
       address: email,
-      id: `email-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `email-${crypto.randomUUID()}`,
     };
 
     onChange([...channels, newChannel]);
@@ -147,7 +142,7 @@ export function NotificationChannels({
     const newChannel: NotificationChannel = {
       type: "sms",
       address: phoneValidation.normalizedNumber,
-      id: `sms-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `sms-${crypto.randomUUID()}`,
     };
 
     onChange([...channels, newChannel]);

@@ -10,7 +10,28 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormError } from "@/components/ui/form-error";
+import {
   BugPlay,
+  ChevronDown,
+  ChevronRight,
   Clock,
   ExternalLink,
   Globe,
@@ -18,23 +39,23 @@ import {
   Play,
   Trash2,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { api } from "@/lib/api-client";
+import { monitorCronExpression, monitorJobName } from "@/lib/monitor-schedule";
+import type { Monitor, MonitorLog } from "@/lib/db";
 import { useState } from "react";
 import Link from "next/link";
 
-interface Monitor {
-  id: string;
-  name: string;
-  url: string;
-  pattern: string;
-  pattern_type: string;
-  check_interval: number;
-  is_active: boolean;
-  last_checked: string | null;
-  last_status: string;
-  created_at: string;
-  notification_channels: Array<{ type: string; address: string }>;
-}
+/** What a forced check reported, rendered in a dialog instead of alert(). */
+type DebugResult =
+  | {
+    ok: true;
+    status: string;
+    responseTime: string;
+    didNotify: boolean;
+    message?: string;
+  }
+  | { ok: false; message: string };
 
 interface MonitorCardProps {
   monitor: Monitor;
@@ -45,13 +66,47 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isQueuing, setIsQueuing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [logs, setLogs] = useState<MonitorLog[] | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [debugResult, setDebugResult] = useState<DebugResult | null>(null);
+  const supabase = createClient();
 
   const toggleActive = async () => {
     setIsLoading(true);
+    const nextActive = !monitor.is_active;
     try {
-      await api.put(`/monitors/${monitor.id}`, {
-        is_active: !monitor.is_active,
-      });
+      const { error } = await supabase
+        .from("monitors")
+        .update({ is_active: nextActive })
+        .eq("id", monitor.id);
+      if (error) throw error;
+
+      // Keep the pg_cron job in step with the monitor. Without this a paused
+      // monitor keeps firing its job every interval indefinitely -- the check
+      // returns early on is_active, but the invocation still happens.
+      const jobName = monitorJobName(monitor.id);
+      const { data: scheduled, error: cronError } = nextActive
+        ? await supabase.rpc("create_monitor_cron_job", {
+          job_name: jobName,
+          cron_schedule: monitorCronExpression(monitor.check_interval),
+          monitor_id: monitor.id,
+          user_id: monitor.user_id,
+        })
+        : await supabase.rpc("delete_monitor_cron_job", { job_name: jobName });
+
+      // These functions swallow their own exceptions and report failure by
+      // returning false, so the return value matters as much as the error.
+      if (cronError || scheduled === false) {
+        console.error(
+          `Monitor ${nextActive ? "resumed" : "paused"} but its schedule was ` +
+            `not updated:`,
+          cronError,
+        );
+      }
+
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error toggling monitor:", error);
@@ -61,38 +116,113 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   };
 
   const deleteMonitor = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this watcher? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
+    setConfirmingDelete(false);
+    setDeleteError(null);
     setIsDeleting(true);
     try {
-      await api.delete(`/monitors/${monitor.id}`);
+      // Unschedule first. If the row is removed first and this fails, the job
+      // is orphaned: it keeps firing forever against a monitor that no longer
+      // exists, and nothing is left in the UI to clean it up.
+      const jobName = monitorJobName(monitor.id);
+      const { data: unscheduled, error: cronError } = await supabase.rpc(
+        "delete_monitor_cron_job",
+        { job_name: jobName },
+      );
+      if (cronError || unscheduled === false) {
+        // Also returns false when there was simply no job to remove, which is
+        // not distinguishable here -- so log it and still delete the monitor,
+        // since leaving the row behind would not help either.
+        console.warn(
+          `No cron job was unscheduled for monitor ${monitor.id}:`,
+          cronError,
+        );
+      }
+
+      const { error } = await supabase
+        .from("monitors")
+        .delete()
+        .eq("id", monitor.id);
+      if (error) throw error;
+
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error deleting monitor:", error);
+      setDeleteError(
+        error instanceof Error
+          ? `Failed to delete watcher: ${error.message}`
+          : "Failed to delete watcher",
+      );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const queueMonitor = async () => {
+  // Debug affordance: exercises the whole pipeline end to end, including the
+  // notification send, rather than only reporting whether the pattern matched.
+  const debugCheck = async () => {
     setIsQueuing(true);
     try {
-      await api.put(`/monitors/${monitor.id}`, {
-        last_status: "pending",
+      // `force` makes the check notify even when the status has not changed,
+      // without writing anything first. An earlier version armed this by
+      // setting last_status to "pending"; that persisted, so a failed request
+      // left the monitor primed to fire a bogus "setup" alert on its next
+      // scheduled check.
+      const result = await api.post("/check-endpoint", {
+        monitor_id: monitor.id,
+        force: true,
       });
+
+      const data = result?.data ?? {};
+      setDebugResult({
+        ok: true,
+        status: data.status ?? "unknown",
+        responseTime: data.responseTime != null
+          ? `${data.responseTime}ms`
+          : "n/a",
+        didNotify: Boolean(data.didNotify),
+        message: result?.message,
+      });
+
+      // The check wrote new rows, so drop any cached history.
+      setLogs(null);
+      if (showHistory) await loadHistory();
       if (onChanged) await onChanged();
     } catch (error) {
-      console.error("Error queueing monitor recheck:", error);
-      alert("Failed to queue recheck");
+      console.error("Error running debug check:", error);
+      setDebugResult({
+        ok: false,
+        message: error instanceof Error ? error.message : "unknown error",
+      });
     } finally {
       setIsQueuing(false);
     }
+  };
+
+  const loadHistory = async () => {
+    setLogsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("monitor_logs")
+        .select(
+          "id, status, response_time, error_message, content_snippet, checked_at",
+        )
+        .eq("monitor_id", monitor.id)
+        .order("checked_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setLogs(data ?? []);
+    } catch (error) {
+      console.error("Error loading check history:", error);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const toggleHistory = async () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (next && logs === null) await loadHistory();
   };
 
   const getStatusBadge = () => {
@@ -157,18 +287,18 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-lg text-orange-800">
+              <CardTitle className="text-lg text-foreground">
                 {monitor.name}
               </CardTitle>
               {!monitor.is_active && <Badge variant="secondary">Paused</Badge>}
             </div>
-            <CardDescription className="flex items-center gap-2 text-orange-600">
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
               <Globe className="h-4 w-4" />
               <span className="truncate">{monitor.url}</span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto p-0 text-orange-600 hover:text-orange-800"
+                className="h-auto p-0 text-muted-foreground hover:text-foreground"
               >
                 <Link
                   href={monitor.url}
@@ -184,10 +314,10 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={queueMonitor}
+              onClick={debugCheck}
               disabled={isQueuing}
               className="text-blue-600 hover:text-blue-800"
-              title="Queue recheck"
+              title="Debug: run a check now and force a notification"
             >
               <BugPlay className="h-4 w-4" />
             </Button>
@@ -196,33 +326,61 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
               size="sm"
               onClick={toggleActive}
               disabled={isLoading}
-              className="text-orange-600 hover:text-orange-800"
+              className="text-muted-foreground hover:text-foreground"
             >
               {monitor.is_active
                 ? <Pause className="h-4 w-4" />
                 : <Play className="h-4 w-4" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={deleteMonitor}
-              disabled={isDeleting}
-              className="text-red-600 hover:text-red-800"
+            <AlertDialog
+              open={confirmingDelete}
+              onOpenChange={setConfirmingDelete}
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isDeleting}
+                  className="text-red-600 hover:text-red-800"
+                  title="Delete this watcher"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-foreground">
+                    Delete &ldquo;{monitor.name}&rdquo;?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the watcher and its scheduled check. Its
+                    history goes with it, and this cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep it</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={deleteMonitor}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Delete watcher
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-3">
+          <FormError message={deleteError} />
           {/* Pattern Info */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-orange-600">Watching for:</span>
+            <span className="text-muted-foreground">Watching for:</span>
             <Badge variant="outline" className="text-xs">
               {monitor.pattern_type.replace("_", " ")}
             </Badge>
-            <code className="bg-orange-50 text-orange-800 px-2 py-1 rounded text-xs">
+            <code className="bg-orange-50 text-foreground px-2 py-1 rounded text-xs">
               {monitor.pattern}
             </code>
           </div>
@@ -231,20 +389,19 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {getStatusBadge()}
-              <div className="flex items-center gap-1 text-sm text-orange-600">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 <span>Every {getIntervalText()}</span>
               </div>
             </div>
-            <div className="text-sm text-orange-600">
+            <div className="text-sm text-muted-foreground">
               Last checked: {formatLastChecked()}
             </div>
           </div>
 
           {/* Notifications */}
-          {monitor.notification_channels &&
-            monitor.notification_channels.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-orange-600">
+          {monitor.notification_channels.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>🔔</span>
               <span>
                 {monitor.notification_channels.length} notification
@@ -253,8 +410,119 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
               </span>
             </div>
           )}
+
+          {
+            /* Check history -- monitor_logs is written on every check and is
+              readable by the owner under RLS, but had no UI until now. */
+          }
+          <div className="border-t border-border/60 pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleHistory}
+              className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
+            >
+              {showHistory
+                ? <ChevronDown className="h-4 w-4 mr-1" />
+                : <ChevronRight className="h-4 w-4 mr-1" />}
+              Check history
+            </Button>
+
+            {showHistory && (
+              <div className="mt-3 space-y-2">
+                {logsLoading && (
+                  <p className="text-sm text-muted-foreground">
+                    Fetching history...
+                  </p>
+                )}
+
+                {!logsLoading && logs !== null && logs.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No checks recorded yet.
+                  </p>
+                )}
+
+                {!logsLoading && logs?.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-start justify-between gap-3 text-xs bg-orange-50 rounded-md px-2 py-1.5"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {log.status}
+                        </Badge>
+                        <span className="text-accent-foreground">
+                          {log.checked_at
+                            ? new Date(log.checked_at).toLocaleString()
+                            : "Unknown time"}
+                        </span>
+                      </div>
+                      {log.error_message && (
+                        <p className="text-red-600 mt-1 break-words">
+                          {log.error_message}
+                        </p>
+                      )}
+                      {log.content_snippet && (
+                        <code className="block text-foreground mt-1 truncate">
+                          {log.content_snippet}
+                        </code>
+                      )}
+                    </div>
+                    {log.response_time !== null && (
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {log.response_time}ms
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
+
+      {/* Debug check result -- previously a newline-joined alert(). */}
+      <Dialog
+        open={debugResult !== null}
+        onOpenChange={(open) => {
+          if (!open) setDebugResult(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {debugResult?.ok ? "Check complete" : "Check failed"}
+            </DialogTitle>
+            <DialogDescription>
+              Forced run of {monitor.name}, including the notification send.
+            </DialogDescription>
+          </DialogHeader>
+
+          {debugResult?.ok
+            ? (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt className="text-muted-foreground">Status</dt>
+                <dd className="text-foreground">{debugResult.status}</dd>
+                <dt className="text-muted-foreground">Response time</dt>
+                <dd className="text-foreground">{debugResult.responseTime}</dd>
+                <dt className="text-muted-foreground">Notification sent</dt>
+                <dd className="text-foreground">
+                  {debugResult.didNotify ? "yes" : "no"}
+                </dd>
+                {debugResult.message && (
+                  <>
+                    <dt className="text-muted-foreground">Message</dt>
+                    <dd className="text-foreground break-words">
+                      {debugResult.message}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            )
+            : <FormError message={debugResult?.message} />}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

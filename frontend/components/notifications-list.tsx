@@ -17,23 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertCircle, Mail, Phone } from "lucide-react";
-// import { Button as DayPickerButton } from "react-day-picker"
 import { Button } from "@/components/ui/button";
 import { Emoji, EmojiText } from "@/lib/emoji";
-
-interface Notification {
-  id: string;
-  type: string;
-  channel: string;
-  message: string;
-  status: string;
-  error_message?: string;
-  sent_at: string;
-  monitors?: {
-    name: string;
-    url: string;
-  };
-}
+import type { Notification } from "@/lib/db";
 
 interface NotificationsListProps {
   notifications: Notification[];
@@ -42,7 +28,8 @@ interface NotificationsListProps {
 export function NotificationsList({ notifications }: NotificationsListProps) {
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not sent";
     const date = new Date(dateString);
     return date.toLocaleDateString() + " " + date.toLocaleTimeString();
   };
@@ -77,11 +64,17 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
     switch (channel) {
       case "email":
         return (
-          <Mail className="h-4 w-4 text-orange-600" data-testid="mail-icon" />
+          <Mail
+            className="h-4 w-4 text-muted-foreground"
+            data-testid="mail-icon"
+          />
         );
       case "sms":
         return (
-          <Phone className="h-4 w-4 text-orange-600" data-testid="phone-icon" />
+          <Phone
+            className="h-4 w-4 text-muted-foreground"
+            data-testid="phone-icon"
+          />
         );
       default:
         return null;
@@ -160,7 +153,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
       {/* Filter Controls */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-orange-700">
+          <span className="text-sm font-medium text-accent-foreground">
             Filter by channel:
           </span>
           <Select value={channelFilter} onValueChange={setChannelFilter}>
@@ -197,7 +190,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
         ? (
           <div className="space-y-4">
             {filteredNotifications.map((notification) => (
-              <Card key={notification.id} className="border-orange-200">
+              <Card key={notification.id}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -205,10 +198,10 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div>
-                        <CardTitle className="text-lg text-orange-800">
+                        <CardTitle className="text-lg text-foreground">
                           {getNotificationTitle(notification.type)}
                         </CardTitle>
-                        <CardDescription className="text-orange-600">
+                        <CardDescription className="text-muted-foreground">
                           {notification.monitors?.name} •{" "}
                           {formatDate(notification.sent_at)}
                         </CardDescription>
@@ -227,7 +220,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="bg-orange-50 rounded-md p-3">
-                    <pre className="text-sm text-orange-800 whitespace-pre-wrap font-sans">
+                    <pre className="text-sm text-foreground whitespace-pre-wrap font-sans">
                     <EmojiText text={formatPhoneForPrivacy(notification.message, notification.channel)} />
                     </pre>
                   </div>
@@ -249,7 +242,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                   )}
 
                   {/* Show channel-specific details */}
-                  <div className="mt-3 flex items-center gap-4 text-sm text-orange-600">
+                  <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       {getChannelIcon(notification.channel)}
                       <span className="capitalize">
@@ -264,7 +257,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                           href={notification.monitors.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-orange-700 hover:underline"
+                          className="text-accent-foreground hover:underline"
                         >
                           {notification.monitors.url}
                         </a>
@@ -282,10 +275,10 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
             <div className="text-6xl mb-6">
               <Emoji char="🔍" />
             </div>
-            <h2 className="text-2xl font-bold text-orange-800 mb-4">
+            <h2 className="text-2xl font-bold text-foreground mb-4">
               No Notifications Found
             </h2>
-            <p className="text-orange-600 mb-8 max-w-md mx-auto">
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               {channelFilter === "all"
                 ? "No notifications match your current filter."
                 : `No ${channelFilter} notifications found.`}
@@ -294,7 +287,7 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
               <Button
                 variant="outline"
                 onClick={() => setChannelFilter("all")}
-                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                className="border-orange-300 text-accent-foreground hover:bg-orange-50"
               >
                 Show All Notifications
               </Button>

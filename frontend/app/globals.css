@@ -4,31 +4,41 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Brand: the app is orange end to end, so the token layer *is* the brand.
+     Values are Tailwind's own orange scale, named in comments, so a component
+     reaching for bg-primary lands on the colour a hand-written bg-orange-500
+     used to produce. */
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.47 0.157 37.304); /* orange-800 */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.47 0.157 37.304); /* orange-800 */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.47 0.157 37.304); /* orange-800 */
+  --primary: oklch(0.705 0.213 47.604); /* orange-500 */
+  /* shadcn's default hover is primary/90, which reads lighter on a light
+     surface. The app has always darkened instead, so keep that as a token. */
+  --primary-hover: oklch(0.646 0.222 41.116); /* orange-600 */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.954 0.038 75.164); /* orange-100 */
+  --secondary-foreground: oklch(0.553 0.195 38.402); /* orange-700 */
+  --muted: oklch(0.98 0.016 73.684); /* orange-50 */
+  --muted-foreground: oklch(0.646 0.222 41.116); /* orange-600 */
+  --accent: oklch(0.98 0.016 73.684); /* orange-50 */
+  --accent-foreground: oklch(0.553 0.195 38.402); /* orange-700 */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.901 0.076 70.697); /* orange-200 */
+  --input: oklch(0.901 0.076 70.697); /* orange-200 */
+  --ring: oklch(0.75 0.183 55.934); /* orange-400 */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
+  /* The translucent white chrome the header and footer sit on. Anything that
+     has to blend into that chrome uses this rather than restating white/80. */
+  --surface-raised: oklch(1 0 0 / 0.8);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -42,6 +52,7 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  --surface-raised: oklch(0.205 0 0 / 0.8);
   --card: oklch(0.145 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.145 0 0);
@@ -75,13 +86,20 @@
 }
 
 @theme inline {
+  /* app/layout.tsx loads Geist and puts these on <body>. Without mapping them
+     onto Tailwind's font tokens, `font-sans` falls through to the stock
+     ui-sans-serif stack and both font packages ship for nothing. */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface-raised: var(--surface-raised);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);

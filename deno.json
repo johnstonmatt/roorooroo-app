@@ -1,8 +1,12 @@
 {
   "tasks": {
+    "setup-twilio": "bash scripts/setup-twilio.sh",
+    "setup-branching": "bash scripts/setup-branching.sh",
+    "setup-vercel": "bash scripts/setup-vercel-integration.sh",
     "frontend:build": "cd frontend && pnpm build",
     "fns:deploy": "npx supabase functions deploy",
-    "fns:checks": "deno fmt --check && deno lint ./supabase/functions/api && deno check ./supabase/functions/api",
+    "fns:checks": "deno fmt --check && deno lint ./supabase/functions && deno check ./supabase/functions/api/index.ts && deno task fns:test",
+    "fns:test": "TWILIO_ACCOUNT_SID=ACtest TWILIO_AUTH_TOKEN=test-token TWILIO_PHONE_NUMBER=+15550001111 deno test --allow-net --allow-env ./supabase/functions",
     "frontend:checks": "cd frontend && pnpm lint",
     "checks": {
       "command": "deno task fns:checks && deno task frontend:checks"
@@ -10,12 +14,15 @@
     "db:push": "npx supabase db push",
     "db:gen-types": "npx supabase gen types typescript --project-id hfzyljzxjrhvenwjyxlo > supabase/db/database.types.ts",
     "db:unsafe-nuke": "npx supabase db reset --linked hfzyljzxjrhvenwjyxlo",
+    "db:sync": "npx supabase db schema declarative sync",
+    "db:sync:check": "npx supabase db schema declarative sync --no-apply",
+    "db:schema:export": "npx supabase db schema declarative generate --local --overwrite",
     "db:baseline": "npx supabase db dump --local --schema public,auth,storage --exclude-table-data='*' > supabase/migrations/00000000000000_baseline.sql",
     "dev:frontend": {
       "command": "cd frontend && pnpm dev"
     },
     "dev:backend": {
-      "command": "npx supabase functions serve --env-file ./supabase/.env.local"
+      "command": "npx supabase functions serve --env-file .env"
     },
     "dev": {
       "command": "deno run -A npm:concurrently \"deno task dev:frontend\" \"deno task dev:backend\""
@@ -23,7 +30,18 @@
   },
   "lint": {
     "rules": {
-      "exclude": ["no-import-prefix"]
+      "exclude": [
+        "no-import-prefix"
+      ]
     }
+  },
+  "workspace": [
+    "./supabase/functions"
+  ],
+  "fmt": {
+    "exclude": [
+      "frontend/pnpm-lock.yaml",
+      "frontend/pnpm-workspace.yaml"
+    ]
   }
 }

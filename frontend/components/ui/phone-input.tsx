@@ -39,10 +39,14 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
     const [isFocused, setIsFocused] = React.useState(false);
     const [hasBeenBlurred, setHasBeenBlurred] = React.useState(false);
 
-    // Update display value when prop value changes
-    React.useEffect(() => {
+    // Mirror the controlled `value` prop into local display state. Done during
+    // render rather than in an effect so typing does not cascade an extra
+    // render pass -- see https://react.dev/reference/react/useState#storing-information-from-previous-renders
+    const [prevValue, setPrevValue] = React.useState(value);
+    if (value !== prevValue) {
+      setPrevValue(value);
       setDisplayValue(value);
-    }, [value]);
+    }
 
     // Validate phone number
     const validateNumber = React.useCallback((phoneNumber: string) => {

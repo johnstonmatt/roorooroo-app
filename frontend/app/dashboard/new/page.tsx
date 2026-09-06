@@ -2,7 +2,8 @@
 
 import React from "react";
 
-import { api, ApiError } from "@/lib/api-client";
+import { createClient } from "@/lib/supabase/client";
+import { monitorCronExpression, monitorJobName } from "@/lib/monitor-schedule";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,10 +25,9 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { SignOutButton } from "@/components/sign-out-button";
-import {
-  type NotificationChannel,
-  NotificationChannels,
-} from "@/components/notification-channels";
+import { DashboardHeader, HeaderTitle } from "@/components/dashboard-header";
+import { NotificationChannels } from "@/components/notification-channels";
+import type { NotificationChannel } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
@@ -44,6 +45,7 @@ export default function NewMonitorPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,25 +79,47 @@ export default function NewMonitorPage() {
         address: channel.address.trim(),
       }));
 
-      // Create monitor using the new API endpoint
-      await api.post("/monitors", {
-        name: name.trim(),
-        url: url.trim(),
-        pattern: pattern.trim(),
-        pattern_type: patternType,
-        check_interval: Number.parseInt(checkInterval),
-        notification_channels: channelsForDb,
-      });
+      // Create monitor using Supabase client
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Not authenticated");
+
+      const { data: monitor, error: insertError } = await supabase
+        .from("monitors")
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+          url: url.trim(),
+          pattern: pattern.trim(),
+          pattern_type: patternType,
+          check_interval: Number.parseInt(checkInterval),
+          notification_channels: channelsForDb,
+          is_active: true,
+          last_status: "pending",
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Schedule cron job via RPC
+      try {
+        const jobName = monitorJobName(monitor.id);
+        const intervalSeconds = Number.parseInt(checkInterval);
+        await supabase.rpc("create_monitor_cron_job", {
+          job_name: jobName,
+          cron_schedule: monitorCronExpression(intervalSeconds),
+          monitor_id: monitor.id,
+          user_id: user.id,
+        });
+      } catch (e) {
+        console.warn("Failed to schedule cron job:", e);
+      }
 
       router.push("/dashboard");
     } catch (error: unknown) {
-      if (
-        (error instanceof ApiError && error.status === 401) ||
-        (error instanceof Error && error.message.includes("401"))
-      ) {
-        router.push("/auth/login");
-        return;
-      }
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);
@@ -103,47 +127,38 @@ export default function NewMonitorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-      {/* Header */}
-      <header className="border-b border-orange-200 bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="text-orange-700"
-            >
-              <Link href="/dashboard">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Link>
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🐕</div>
-              <div>
-                <h1 className="text-xl font-bold text-orange-800">
-                  New Watcher
-                </h1>
-                <p className="text-xs text-orange-600">
-                  Set up a new website monitor
-                </p>
-              </div>
-            </div>
-          </div>
-          <SignOutButton className="border-orange-300 text-orange-700" />
+    <div>
+      <DashboardHeader>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-accent-foreground"
+          >
+            <Link href="/dashboard">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Link>
+          </Button>
+          <HeaderTitle
+            emoji="🐕"
+            title="New Watcher"
+            subtitle="Set up a new website monitor"
+          />
         </div>
-      </header>
+        <SignOutButton className="border-orange-300 text-accent-foreground" />
+      </DashboardHeader>
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
-          <Card className="border-orange-200 shadow-lg">
+          <Card className="shadow-lg">
             <CardHeader className="text-center">
               <div className="text-4xl mb-4">👀</div>
-              <CardTitle className="text-2xl text-orange-800">
+              <CardTitle className="text-2xl text-foreground">
                 Create a New Watcher
               </CardTitle>
-              <CardDescription className="text-orange-600">
+              <CardDescription className="text-muted-foreground">
                 Tell your faithful pup what to watch for on the web
               </CardDescription>
             </CardHeader>
@@ -151,7 +166,10 @@ export default function NewMonitorPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Monitor Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-orange-700 font-medium">
+                  <Label
+                    htmlFor="name"
+                    className="text-accent-foreground font-medium"
+                  >
                     Watcher Name
                   </Label>
                   <Input
@@ -161,16 +179,18 @@ export default function NewMonitorPage() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
                   />
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-muted-foreground">
                     Give your watcher a memorable name
                   </p>
                 </div>
 
                 {/* Website URL */}
                 <div className="space-y-2">
-                  <Label htmlFor="url" className="text-orange-700 font-medium">
+                  <Label
+                    htmlFor="url"
+                    className="text-accent-foreground font-medium"
+                  >
                     Website URL
                   </Label>
                   <Input
@@ -180,9 +200,8 @@ export default function NewMonitorPage() {
                     required
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
                   />
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-muted-foreground">
                     The webpage you want to monitor
                   </p>
                 </div>
@@ -191,7 +210,7 @@ export default function NewMonitorPage() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="pattern"
-                    className="text-orange-700 font-medium"
+                    className="text-accent-foreground font-medium"
                   >
                     What to Watch For
                   </Label>
@@ -201,20 +220,20 @@ export default function NewMonitorPage() {
                     required
                     value={pattern}
                     onChange={(e) => setPattern(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400 min-h-[80px]"
+                    className="min-h-[80px]"
                   />
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-muted-foreground">
                     Text or pattern that should trigger an alert
                   </p>
                 </div>
 
                 {/* Pattern Type */}
                 <div className="space-y-2">
-                  <Label className="text-orange-700 font-medium">
+                  <Label className="text-accent-foreground font-medium">
                     Pattern Type
                   </Label>
                   <Select value={patternType} onValueChange={setPatternType}>
-                    <SelectTrigger className="border-orange-200 focus:border-orange-400">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -254,14 +273,14 @@ export default function NewMonitorPage() {
 
                 {/* Check Interval */}
                 <div className="space-y-2">
-                  <Label className="text-orange-700 font-medium">
+                  <Label className="text-accent-foreground font-medium">
                     Check Frequency
                   </Label>
                   <Select
                     value={checkInterval}
                     onValueChange={setCheckInterval}
                   >
-                    <SelectTrigger className="border-orange-200 focus:border-orange-400">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -271,14 +290,14 @@ export default function NewMonitorPage() {
                       <SelectItem value="3600">Every hour</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-muted-foreground">
                     How often should we check for changes?
                   </p>
                 </div>
 
                 {/* Notification Channels */}
                 <div className="space-y-2">
-                  <Label className="text-orange-700 font-medium">
+                  <Label className="text-accent-foreground font-medium">
                     Notification Channels
                   </Label>
                   <NotificationChannels
@@ -287,24 +306,19 @@ export default function NewMonitorPage() {
                     maxChannels={5}
                     maxEmailChannels={3}
                     maxSmsChannels={3}
-                    className="border-orange-200"
                   />
-                  <p className="text-xs text-orange-600">
+                  <p className="text-xs text-muted-foreground">
                     Add email and SMS channels to receive alerts when patterns
                     are detected
                   </p>
                 </div>
 
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                <FormError message={error} />
 
                 <div className="flex gap-3 pt-4">
                   <Button
                     type="submit"
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                    className="flex-1"
                     disabled={isLoading || notificationChannels.length === 0}
                   >
                     {isLoading ? "Creating Watcher..." : "🐕 Start Watching"}
@@ -313,7 +327,7 @@ export default function NewMonitorPage() {
                     type="button"
                     variant="outline"
                     asChild
-                    className="border-orange-300 text-orange-700 bg-transparent"
+                    className="border-orange-300 text-accent-foreground bg-transparent"
                   >
                     <Link href="/dashboard">Cancel</Link>
                   </Button>
@@ -323,14 +337,14 @@ export default function NewMonitorPage() {
           </Card>
 
           {/* Help Section */}
-          <Card className="mt-8 border-orange-200">
+          <Card className="mt-8">
             <CardHeader>
-              <CardTitle className="text-lg text-orange-800 flex items-center gap-2">
+              <CardTitle className="text-lg text-foreground flex items-center gap-2">
                 <span>💡</span>
                 Tips for Better Watching
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm text-orange-700">
+            <CardContent className="space-y-3 text-sm text-accent-foreground">
               <div>
                 <strong>URL Tips:</strong>{" "}
                 Use the exact page URL where the content appears. Avoid

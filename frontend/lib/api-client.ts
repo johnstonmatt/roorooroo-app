@@ -1,5 +1,5 @@
 /**
- * API client for making requests to the Hono backend
+ * API client for making requests to the Edge Function
  */
 
 import { createClient } from "@/lib/supabase/client";
@@ -21,7 +21,7 @@ interface ApiClientOptions {
 }
 
 /**
- * Makes authenticated API requests to the Hono backend
+ * Makes authenticated API requests to the Edge Function
  */
 export async function apiClient(
   endpoint: string,
@@ -33,8 +33,17 @@ export async function apiClient(
   // Get the current session for authentication
   const { data: { session } } = await supabase.auth.getSession();
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:54321/functions/v1/api";
+  // Single "api" function; `endpoint` is a route within it (e.g. "/status").
+  // Derived from the Supabase URL rather than configured separately: auth and
+  // the Edge Function must come from the SAME project, because the function
+  // verifies the browser's JWT against that project's JWKS and a token minted
+  // by a different project can never match by `kid`. Deriving keeps the two in
+  // step wherever the build points -- local, a preview branch, or production.
+  // NEXT_PUBLIC_API_BASE_URL stays as an escape hatch for pointing elsewhere.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    "http://localhost:54321";
+  const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ||
+    `${supabaseUrl}/functions/v1/api`).replace(/\/+$/, "");
   const url = `${apiBaseUrl}${endpoint}`;
 
   const requestHeaders: Record<string, string> = {
@@ -79,13 +88,16 @@ export async function apiClient(
       throw new ApiError(errorMessage, response.status);
     }
 
-    // Handle empty responses (like DELETE requests)
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
+    // Handle empty responses (like DELETE requests).
+    // Match structured JSON suffixes too (RFC 6839), not just
+    // application/json: the OpenAPI document is served as
+    // application/openapi+json, and a plain substring check silently
+    // returned null for it.
+    const contentType = response.headers.get("content-type") ?? "";
+    if (/^application\/([\w.+-]+\+)?json\b/i.test(contentType)) {
       return await response.json();
-    } else {
-      return null;
     }
+    return null;
   } catch (error) {
     console.error(`API request failed: ${method} ${endpoint}`, error);
     throw error;

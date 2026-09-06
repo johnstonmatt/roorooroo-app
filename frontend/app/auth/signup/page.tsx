@@ -1,7 +1,5 @@
 "use client";
 
-import type React from "react";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,12 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthBrand } from "@/components/auth-brand";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { api, ApiError } from "@/lib/api-client";
+import { useActionState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // Email allowlist configuration from environment variables
 const ALLOWED_EMAILS = (process.env.NEXT_PUBLIC_ALLOWED_SIGNUP_EMAILS || "")
@@ -36,157 +36,129 @@ const EMAIL_PATTERN = escapedEmails
   : `^[^\\s@]+${escapedDomain}$`;
 
 export default function SignupPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+  const [error, signUp, isPending] = useActionState<string | null, FormData>(
+    async (_previous, formData) => {
+      const email = String(formData.get("email") ?? "");
+      const password = String(formData.get("password") ?? "");
+      const confirmPassword = String(formData.get("confirmPassword") ?? "");
+      const displayName = String(formData.get("displayName") ?? "");
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
+      if (password !== confirmPassword) return "Passwords do not match";
 
-    const emailLower = email.toLowerCase();
-    const isAllowedEmail = ALLOWED_EMAILS.includes(emailLower);
-    const isAllowedDomain = emailLower.endsWith(ALLOWED_DOMAIN);
+      // The pattern attribute already blocks this in the browser; repeat it
+      // here because the attribute is only a hint, not a guarantee.
+      const emailLower = email.toLowerCase();
+      if (
+        !ALLOWED_EMAILS.includes(emailLower) &&
+        !emailLower.endsWith(ALLOWED_DOMAIN)
+      ) {
+        return `Only ${ALLOWED_DOMAIN} email addresses are allowed.`;
+      }
 
-    if (!isAllowedEmail && !isAllowedDomain) {
-      setError(`Only ${ALLOWED_DOMAIN} email addresses are allowed.`);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      await api.post("/auth/signup", {
+      const supabase = createClient();
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        displayName,
+        options: { data: { display_name: displayName || undefined } },
       });
+      if (signUpError) return signUpError.message || "Failed to sign up";
+
       router.push("/auth/signup-success");
-    } catch (error: unknown) {
-      if (error instanceof ApiError) {
-        setError(error.message || "Failed to sign up");
-      } else {
-        setError(error instanceof Error ? error.message : "An error occurred");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return null;
+    },
+    null,
+  );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🐕</div>
-          <h1 className="text-3xl font-bold text-orange-800 mb-2">RooRooRoo</h1>
-          <p className="text-orange-600">Join the pack of website watchers</p>
-        </div>
-
-        <Card className="border-orange-200 shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-orange-800">
-              Create Account
-            </CardTitle>
-            <CardDescription className="text-orange-600">
-              Start watching websites like a loyal pup
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSignup}>
-              <div className="flex flex-col gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="displayName" className="text-orange-700">
-                    Display Name
-                  </Label>
-                  <Input
-                    id="displayName"
-                    type="text"
-                    placeholder="Your name"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email" className="text-orange-700">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
-                    pattern={EMAIL_PATTERN}
-                    title="Email must be a @supabase.io address or an approved email"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password" className="text-orange-700">
-                    Password
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="confirmPassword" className="text-orange-700">
-                    Confirm Password
-                  </Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="border-orange-200 focus:border-orange-400"
-                  />
-                </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-sm text-red-600">{error}</p>
-                  </div>
-                )}
-                <Button
-                  type="submit"
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Creating account..." : "Create Account"}
-                </Button>
+    <>
+      <AuthBrand tagline="Join the pack of website watchers" />
+      <Card className="shadow-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl text-foreground">
+            Create Account
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Start watching websites like a loyal pup
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={signUp}>
+            <div className="flex flex-col gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="displayName" className="text-accent-foreground">
+                  Display Name
+                </Label>
+                <Input
+                  id="displayName"
+                  name="displayName"
+                  type="text"
+                  placeholder="Your name"
+                />
               </div>
-              <div className="mt-6 text-center text-sm">
-                <span className="text-orange-600">
-                  Already have an account?
-                </span>
-                <Link
-                  href="/auth/login"
-                  className="text-orange-700 hover:text-orange-800 font-medium underline underline-offset-4"
-                >
-                  Sign in
-                </Link>
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-accent-foreground">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  required
+                  pattern={EMAIL_PATTERN}
+                  title="Email must be a @supabase.io address or an approved email"
+                />
               </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password" className="text-accent-foreground">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label
+                  htmlFor="confirmPassword"
+                  className="text-accent-foreground"
+                >
+                  Confirm Password
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                />
+              </div>
+              <FormError message={error} />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isPending}
+              >
+                {isPending ? "Creating account..." : "Create Account"}
+              </Button>
+            </div>
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground">
+                Already have an account?
+              </span>
+              <Link
+                href="/auth/login"
+                className="text-accent-foreground hover:text-foreground font-medium underline underline-offset-4"
+              >
+                Sign in
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </>
   );
 }

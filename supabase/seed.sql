@@ -1,0 +1,16 @@
+-- Seed data, applied after migrations by `supabase db reset` and by Supabase
+-- branching when a preview branch is created.
+--
+-- config.toml points [db.seed] sql_paths at this file, so it must exist even
+-- when empty -- otherwise every reset logs "no files matched pattern".
+--
+-- Preview branches start with NO data and NO storage objects copied from
+-- production, by design. Anything a reviewer needs in order to exercise a PR
+-- has to be created here.
+--
+-- Note on users: monitors, monitor_logs and notifications are all keyed to
+-- auth.users, and public.profiles is populated by the on_auth_user_created
+-- trigger. Seeding rows therefore means creating an auth user first, which is
+-- best done through the Auth admin API rather than by inserting into
+-- auth.users directly -- the internal shape of that table is not ours to
+-- depend on.

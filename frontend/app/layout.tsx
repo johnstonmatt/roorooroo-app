@@ -5,7 +5,6 @@ import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Suspense } from "react";
-import StatusTag from "@/components/status-tag";
 
 export const metadata: Metadata = {
   title: "RooRooRoo - Your Faithful Website Watcher",
@@ -37,11 +36,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 pb-2">
-          <Suspense fallback={null}>
-            {children}
-            <StatusTag />
-          </Suspense>
+        {
+          /* The one page backdrop. Pages used to each paint their own
+            gradient on top of this one, in a slightly different pair of
+            stops. */
+        }
+        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+          <Suspense fallback={null}>{children}</Suspense>
           <Analytics />
         </div>
       </body>

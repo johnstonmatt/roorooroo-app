@@ -3,32 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { BrandLink } from "@/components/nav-auth";
+import { DashboardHeader, HeaderTitle } from "@/components/dashboard-header";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Bell, Plus } from "lucide-react";
 import { MonitorCard } from "@/components/monitor-card";
-import type { User } from "@supabase/supabase-js";
-
-interface Profile {
-  id: string;
-  display_name: string | null;
-}
-
-interface Monitor {
-  id: string;
-  user_id: string;
-  name: string;
-  url: string;
-  is_active: boolean;
-  created_at: string;
-}
+import { type Monitor, type Profile, toMonitor } from "@/lib/db";
 
 export default function DashboardPage() {
-  const [, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [todayNotificationCount, setTodayNotificationCount] = useState(0);
@@ -38,19 +24,18 @@ export default function DashboardPage() {
 
   const refreshMonitors = useCallback(async () => {
     try {
-      const response = await api.get("/monitors");
-      setMonitors(response?.data || []);
+      const { data, error } = await supabase
+        .from("monitors")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setMonitors((data ?? []).map(toMonitor));
     } catch (error) {
       console.error("Error fetching monitors:", error);
-      if (
-        (error instanceof ApiError && error.status === 401) ||
-        (error instanceof Error && error.message.includes("401"))
-      ) {
-        router.push("/auth/login");
-        return;
-      }
+      router.push("/auth/login");
+      return;
     }
-  }, [router]);
+  }, [router, supabase]);
 
   useEffect(() => {
     async function loadData() {
@@ -66,29 +51,27 @@ export default function DashboardPage() {
           return;
         }
 
-        setUser(user);
-
         // Get user profile
         const { data: profile } = await supabase.from("profiles").select("*")
           .eq("id", user.id).single();
         setProfile(profile);
 
-        // Get user's monitors using the new API endpoint
+        // Get user's monitors using Supabase client
         await refreshMonitors();
 
-        // Get notifications count from the last 24 hours using API
+        // Get notifications count from the last 24 hours using Supabase client
         try {
-          const response = await api.get("/notifications?since=24h");
-          setTodayNotificationCount(response?.data?.length || 0);
+          const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+            .toISOString();
+          const { data: notifications, error: notifError } = await supabase
+            .from("notifications")
+            .select("id")
+            .gte("created_at", since)
+            .eq("user_id", user.id);
+          if (notifError) throw notifError;
+          setTodayNotificationCount(notifications?.length || 0);
         } catch (error) {
           console.error("Error fetching notifications count:", error);
-          if (
-            (error instanceof ApiError && error.status === 401) ||
-            (error instanceof Error && error.message.includes("401"))
-          ) {
-            router.push("/auth/login");
-            return;
-          }
           setTodayNotificationCount(0);
         }
       } catch (error) {
@@ -103,10 +86,10 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">🐕</div>
-          <p className="text-orange-600">Loading your watchers...</p>
+          <p className="text-muted-foreground">Loading your watchers...</p>
         </div>
       </div>
     );
@@ -116,54 +99,53 @@ export default function DashboardPage() {
   const inactiveMonitors = monitors.filter((m) => !m.is_active);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
-      {/* Header */}
-      <header className="border-b border-orange-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">🐕</div>
-            <div>
-              <h1 className="text-2xl font-bold text-orange-800">RooRooRoo</h1>
-              <p className="text-xs text-orange-600">Dashboard</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-orange-700">
-              Hello, {profile?.display_name || "Watcher"}!
-            </span>
-            <Button
-              variant="ghost"
-              asChild
-              className="text-orange-700 hover:text-orange-800"
-            >
-              <Link href="/dashboard/notifications">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
-              </Link>
-            </Button>
-            <Button
-              asChild
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              <Link href="/dashboard/new">
-                <Plus className="h-4 w-4 mr-2" />
-                New Watcher
-              </Link>
-            </Button>
-            <SignOutButton className="border-orange-300 text-orange-700" />
-          </div>
+    <div>
+      <DashboardHeader sticky>
+        <BrandLink>
+          <HeaderTitle
+            emoji="🐕"
+            title="RooRooRoo"
+            subtitle="Dashboard"
+            size="lg"
+          />
+        </BrandLink>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-accent-foreground">
+            Hello, {profile?.display_name || "Watcher"}!
+          </span>
+          <Button
+            variant="ghost"
+            asChild
+            className="text-accent-foreground hover:text-foreground"
+          >
+            <Link href="/dashboard/notifications">
+              <Bell className="h-4 w-4 mr-2" />
+              Notifications
+            </Link>
+          </Button>
+          <Button
+            asChild
+          >
+            <Link href="/dashboard/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New Watcher
+            </Link>
+          </Button>
+          <SignOutButton className="border-orange-300 text-accent-foreground" />
         </div>
-      </header>
+      </DashboardHeader>
 
       <div className="container mx-auto px-4 py-8">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="border-orange-200">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-orange-600">Total Watchers</p>
-                  <p className="text-2xl font-bold text-orange-800">
+                  <p className="text-sm text-muted-foreground">
+                    Total Watchers
+                  </p>
+                  <p className="text-2xl font-bold text-foreground">
                     {monitors?.length || 0}
                   </p>
                 </div>
@@ -172,11 +154,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-orange-200">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-orange-600">Active</p>
+                  <p className="text-sm text-muted-foreground">Active</p>
                   <p className="text-2xl font-bold text-green-700">
                     {activeMonitors.length}
                   </p>
@@ -186,11 +168,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-orange-200">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-orange-600">Paused</p>
+                  <p className="text-sm text-muted-foreground">Paused</p>
                   <p className="text-2xl font-bold text-gray-600">
                     {inactiveMonitors.length}
                   </p>
@@ -200,11 +182,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-orange-200">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-orange-600">Alerts Today</p>
+                  <p className="text-sm text-muted-foreground">Alerts Today</p>
                   <p className="text-2xl font-bold text-blue-700">
                     {todayNotificationCount}
                   </p>
@@ -223,7 +205,7 @@ export default function DashboardPage() {
               {activeMonitors.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
-                    <h2 className="text-xl font-semibold text-orange-800">
+                    <h2 className="text-xl font-semibold text-foreground">
                       Active Watchers
                     </h2>
                     <Badge className="bg-green-100 text-green-700">
@@ -246,7 +228,7 @@ export default function DashboardPage() {
               {inactiveMonitors.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
-                    <h2 className="text-xl font-semibold text-orange-800">
+                    <h2 className="text-xl font-semibold text-foreground">
                       Paused Watchers
                     </h2>
                     <Badge
@@ -273,17 +255,16 @@ export default function DashboardPage() {
             /* Empty State */
             <div className="text-center py-16">
               <div className="text-6xl mb-6">🐕</div>
-              <h2 className="text-2xl font-bold text-orange-800 mb-4">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
                 No Watchers Yet
               </h2>
-              <p className="text-orange-600 mb-8 max-w-md mx-auto">
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Your faithful pup is ready to start watching! Create your first
                 website monitor to get started.
               </p>
               <Button
                 asChild
                 size="lg"
-                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 <Link href="/dashboard/new">
                   <Plus className="h-5 w-5 mr-2" />
