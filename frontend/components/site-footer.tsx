@@ -9,7 +9,7 @@ import StatusTag from "@/components/status-tag";
  */
 export function SiteFooter() {
   return (
-    <footer className="border-t border-orange-200 bg-surface-raised">
+    <footer className="border-t bg-surface-raised">
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row items-center justify-between">
           <div className="flex items-center gap-3 mb-4 md:mb-0">
@@ -17,23 +17,23 @@ export function SiteFooter() {
               <Emoji char="🐕" />
             </div>
             <div>
-              <h3 className="font-bold text-orange-800">RooRooRoo</h3>
-              <p className="text-xs text-orange-600">
+              <h3 className="font-bold text-foreground">RooRooRoo</h3>
+              <p className="text-xs text-muted-foreground">
                 Your faithful website watcher
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-6 text-sm text-orange-600">
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link
               href="https://github.com/johnstonmatt/roorooroo-app"
-              className="hover:text-orange-800"
+              className="hover:text-foreground"
             >
               GitHub
             </Link>
           </div>
         </div>
-        <div className="text-center mt-8 pt-8 border-t border-orange-200">
-          <p className="text-sm text-orange-600">
+        <div className="text-center mt-8 pt-8 border-t">
+          <p className="text-sm text-muted-foreground">
             © {`${new Date().getFullYear()}`} RooRooRoo - For Ollie{" "}
             <Emoji char="❤️" />
             <Emoji char="🐾" />

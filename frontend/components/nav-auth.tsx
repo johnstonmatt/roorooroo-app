@@ -68,7 +68,6 @@ export function HomeNavActions() {
     return (
       <Button
         asChild
-        className="bg-orange-500 hover:bg-orange-600 text-white"
       >
         <Link href="/dashboard">Go to Dashboard</Link>
       </Button>
@@ -80,13 +79,12 @@ export function HomeNavActions() {
       <Button
         variant="ghost"
         asChild
-        className="text-orange-700 hover:text-orange-800"
+        className="text-accent-foreground hover:text-foreground"
       >
         <Link href="/auth/login">Sign In</Link>
       </Button>
       <Button
         asChild
-        className="bg-orange-500 hover:bg-orange-600 text-white"
       >
         <Link href="/auth/signup">Get Started</Link>
       </Button>

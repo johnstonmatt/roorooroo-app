@@ -287,18 +287,18 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-lg text-orange-800">
+              <CardTitle className="text-lg text-foreground">
                 {monitor.name}
               </CardTitle>
               {!monitor.is_active && <Badge variant="secondary">Paused</Badge>}
             </div>
-            <CardDescription className="flex items-center gap-2 text-orange-600">
+            <CardDescription className="flex items-center gap-2 text-muted-foreground">
               <Globe className="h-4 w-4" />
               <span className="truncate">{monitor.url}</span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto p-0 text-orange-600 hover:text-orange-800"
+                className="h-auto p-0 text-muted-foreground hover:text-foreground"
               >
                 <Link
                   href={monitor.url}
@@ -326,7 +326,7 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
               size="sm"
               onClick={toggleActive}
               disabled={isLoading}
-              className="text-orange-600 hover:text-orange-800"
+              className="text-muted-foreground hover:text-foreground"
             >
               {monitor.is_active
                 ? <Pause className="h-4 w-4" />
@@ -349,7 +349,7 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-orange-800">
+                  <AlertDialogTitle className="text-foreground">
                     Delete &ldquo;{monitor.name}&rdquo;?
                   </AlertDialogTitle>
                   <AlertDialogDescription>
@@ -376,11 +376,11 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           <FormError message={deleteError} />
           {/* Pattern Info */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-orange-600">Watching for:</span>
+            <span className="text-muted-foreground">Watching for:</span>
             <Badge variant="outline" className="text-xs">
               {monitor.pattern_type.replace("_", " ")}
             </Badge>
-            <code className="bg-orange-50 text-orange-800 px-2 py-1 rounded text-xs">
+            <code className="bg-orange-50 text-foreground px-2 py-1 rounded text-xs">
               {monitor.pattern}
             </code>
           </div>
@@ -389,19 +389,19 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {getStatusBadge()}
-              <div className="flex items-center gap-1 text-sm text-orange-600">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 <span>Every {getIntervalText()}</span>
               </div>
             </div>
-            <div className="text-sm text-orange-600">
+            <div className="text-sm text-muted-foreground">
               Last checked: {formatLastChecked()}
             </div>
           </div>
 
           {/* Notifications */}
           {monitor.notification_channels.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-orange-600">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>🔔</span>
               <span>
                 {monitor.notification_channels.length} notification
@@ -415,12 +415,12 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
             /* Check history -- monitor_logs is written on every check and is
               readable by the owner under RLS, but had no UI until now. */
           }
-          <div className="border-t border-orange-100 pt-3">
+          <div className="border-t border-border/60 pt-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleHistory}
-              className="h-auto p-0 text-sm text-orange-600 hover:text-orange-800"
+              className="h-auto p-0 text-sm text-muted-foreground hover:text-foreground"
             >
               {showHistory
                 ? <ChevronDown className="h-4 w-4 mr-1" />
@@ -431,11 +431,13 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
             {showHistory && (
               <div className="mt-3 space-y-2">
                 {logsLoading && (
-                  <p className="text-sm text-orange-600">Fetching history...</p>
+                  <p className="text-sm text-muted-foreground">
+                    Fetching history...
+                  </p>
                 )}
 
                 {!logsLoading && logs !== null && logs.length === 0 && (
-                  <p className="text-sm text-orange-600">
+                  <p className="text-sm text-muted-foreground">
                     No checks recorded yet.
                   </p>
                 )}
@@ -450,7 +452,7 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
                         <Badge variant="outline" className="text-xs">
                           {log.status}
                         </Badge>
-                        <span className="text-orange-700">
+                        <span className="text-accent-foreground">
                           {log.checked_at
                             ? new Date(log.checked_at).toLocaleString()
                             : "Unknown time"}
@@ -462,13 +464,13 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
                         </p>
                       )}
                       {log.content_snippet && (
-                        <code className="block text-orange-800 mt-1 truncate">
+                        <code className="block text-foreground mt-1 truncate">
                           {log.content_snippet}
                         </code>
                       )}
                     </div>
                     {log.response_time !== null && (
-                      <span className="text-orange-600 whitespace-nowrap">
+                      <span className="text-muted-foreground whitespace-nowrap">
                         {log.response_time}ms
                       </span>
                     )}
@@ -489,7 +491,7 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-orange-800">
+            <DialogTitle className="text-foreground">
               {debugResult?.ok ? "Check complete" : "Check failed"}
             </DialogTitle>
             <DialogDescription>
@@ -500,18 +502,18 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           {debugResult?.ok
             ? (
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                <dt className="text-orange-600">Status</dt>
-                <dd className="text-orange-800">{debugResult.status}</dd>
-                <dt className="text-orange-600">Response time</dt>
-                <dd className="text-orange-800">{debugResult.responseTime}</dd>
-                <dt className="text-orange-600">Notification sent</dt>
-                <dd className="text-orange-800">
+                <dt className="text-muted-foreground">Status</dt>
+                <dd className="text-foreground">{debugResult.status}</dd>
+                <dt className="text-muted-foreground">Response time</dt>
+                <dd className="text-foreground">{debugResult.responseTime}</dd>
+                <dt className="text-muted-foreground">Notification sent</dt>
+                <dd className="text-foreground">
                   {debugResult.didNotify ? "yes" : "no"}
                 </dd>
                 {debugResult.message && (
                   <>
-                    <dt className="text-orange-600">Message</dt>
-                    <dd className="text-orange-800 break-words">
+                    <dt className="text-muted-foreground">Message</dt>
+                    <dd className="text-foreground break-words">
                       {debugResult.message}
                     </dd>
                   </>

@@ -36,6 +36,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+        {
+          /* The one page backdrop. Pages used to each paint their own
+            gradient on top of this one, in a slightly different pair of
+            stops. */
+        }
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
           <Suspense fallback={null}>{children}</Suspense>
           <Analytics />

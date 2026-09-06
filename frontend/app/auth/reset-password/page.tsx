@@ -12,6 +12,7 @@ import {
 import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthBrand } from "@/components/auth-brand";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
@@ -129,118 +130,109 @@ export default function ResetPasswordPage() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🐕</div>
-          <h1 className="text-3xl font-bold text-orange-800 mb-2">RooRooRoo</h1>
-          <p className="text-orange-600">Your faithful website watcher</p>
-        </div>
+    <>
+      <AuthBrand tagline="Your faithful website watcher" />
+      <Card className="shadow-lg">
+        {status === "verifying" && (
+          <>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl text-foreground">
+                Sniffing Out Your Link
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                One moment while we check it
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="text-4xl mb-4">🦴</div>
+            </CardContent>
+          </>
+        )}
 
-        <Card className="border-orange-200 shadow-lg">
-          {status === "verifying" && (
-            <>
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl text-orange-800">
-                  Sniffing Out Your Link
-                </CardTitle>
-                <CardDescription className="text-orange-600">
-                  One moment while we check it
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-center">
-                <div className="text-4xl mb-4">🦴</div>
-              </CardContent>
-            </>
-          )}
+        {status === "invalid" && (
+          <>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl text-foreground">
+                This Link Won&#39;t Fetch
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Reset links expire after one hour and work only once
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="mb-6">
+                <FormError message={error} />
+              </div>
+              <Button
+                asChild
+              >
+                <Link href="/auth/forgot-password">Request a New Link</Link>
+              </Button>
+            </CardContent>
+          </>
+        )}
 
-          {status === "invalid" && (
-            <>
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl text-orange-800">
-                  This Link Won&#39;t Fetch
-                </CardTitle>
-                <CardDescription className="text-orange-600">
-                  Reset links expire after one hour and work only once
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-center">
-                <div className="mb-6">
-                  <FormError message={error} />
-                </div>
-                <Button
-                  asChild
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                >
-                  <Link href="/auth/forgot-password">Request a New Link</Link>
-                </Button>
-              </CardContent>
-            </>
-          )}
-
-          {status === "ready" && (
-            <>
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl text-orange-800">
-                  Choose a New Password
-                </CardTitle>
-                <CardDescription className="text-orange-600">
-                  Pick something you&#39;ll remember this time
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form action={updatePassword}>
-                  <div className="flex flex-col gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="password" className="text-orange-700">
-                        New Password
-                      </Label>
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        required
-                        minLength={MIN_PASSWORD_LENGTH}
-                        className="border-orange-200 focus:border-orange-400"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label
-                        htmlFor="confirmPassword"
-                        className="text-orange-700"
-                      >
-                        Confirm New Password
-                      </Label>
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        required
-                        minLength={MIN_PASSWORD_LENGTH}
-                        className="border-orange-200 focus:border-orange-400"
-                      />
-                    </div>
-                    <FormError
-                      message={update.status === "error"
-                        ? update.message
-                        : null}
-                    />
-                    <Button
-                      type="submit"
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                      disabled={isPending || update.status === "done"}
+        {status === "ready" && (
+          <>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl text-foreground">
+                Choose a New Password
+              </CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Pick something you&#39;ll remember this time
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form action={updatePassword}>
+                <div className="flex flex-col gap-4">
+                  <div className="grid gap-2">
+                    <Label
+                      htmlFor="password"
+                      className="text-accent-foreground"
                     >
-                      {isPending || update.status === "done"
-                        ? "Updating..."
-                        : "Update Password"}
-                    </Button>
+                      New Password
+                    </Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={MIN_PASSWORD_LENGTH}
+                    />
                   </div>
-                </form>
-              </CardContent>
-            </>
-          )}
-        </Card>
-      </div>
-    </div>
+                  <div className="grid gap-2">
+                    <Label
+                      htmlFor="confirmPassword"
+                      className="text-accent-foreground"
+                    >
+                      Confirm New Password
+                    </Label>
+                    <Input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      required
+                      minLength={MIN_PASSWORD_LENGTH}
+                    />
+                  </div>
+                  <FormError
+                    message={update.status === "error" ? update.message : null}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isPending || update.status === "done"}
+                  >
+                    {isPending || update.status === "done"
+                      ? "Updating..."
+                      : "Update Password"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </>
+        )}
+      </Card>
+    </>
   );
 }

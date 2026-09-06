@@ -12,6 +12,7 @@ import {
 import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthBrand } from "@/components/auth-brand";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState } from "react";
@@ -37,81 +38,74 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-6">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🐕</div>
-          <h1 className="text-3xl font-bold text-orange-800 mb-2">RooRooRoo</h1>
-          <p className="text-orange-600">Your faithful website watcher</p>
-        </div>
-
-        <Card className="border-orange-200 shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-orange-800">
-              Welcome Back
-            </CardTitle>
-            <CardDescription className="text-orange-600">
-              Sign in to check on your website watchers
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={signIn}>
-              <div className="flex flex-col gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="email" className="text-orange-700">
-                    Email
+    <>
+      <AuthBrand tagline="Your faithful website watcher" />
+      <Card className="shadow-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl text-foreground">
+            Welcome Back
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Sign in to check on your website watchers
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={signIn}>
+            <div className="flex flex-col gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-accent-foreground">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-accent-foreground">
+                    Password
                   </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    required
-                    className="border-orange-200 focus:border-orange-400"
-                  />
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-orange-700">
-                      Password
-                    </Label>
-                    <Link
-                      href="/auth/forgot-password"
-                      className="text-sm text-orange-600 hover:text-orange-800 underline underline-offset-4"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className="border-orange-200 focus:border-orange-400"
-                  />
-                </div>
-                <FormError message={error} />
-                <Button
-                  type="submit"
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                  disabled={isPending}
-                >
-                  {isPending ? "Signing in..." : "Sign In"}
-                </Button>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                />
               </div>
-              <div className="mt-6 text-center text-sm">
-                <span className="text-orange-600 mr-1">New to RooRooRoo?</span>
-                <Link
-                  href="/auth/signup"
-                  className="text-orange-700 hover:text-orange-800 font-medium underline underline-offset-4"
-                >
-                  Create an account
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+              <FormError message={error} />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isPending}
+              >
+                {isPending ? "Signing in..." : "Sign In"}
+              </Button>
+            </div>
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground mr-1">
+                New to RooRooRoo?
+              </span>
+              <Link
+                href="/auth/signup"
+                className="text-accent-foreground hover:text-foreground font-medium underline underline-offset-4"
+              >
+                Create an account
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </>
   );
 }
