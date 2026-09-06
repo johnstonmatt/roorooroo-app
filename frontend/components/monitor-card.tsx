@@ -10,6 +10,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormError } from "@/components/ui/form-error";
+import {
   BugPlay,
   ChevronDown,
   ChevronRight,
@@ -27,6 +46,17 @@ import type { Monitor, MonitorLog } from "@/lib/db";
 import { useState } from "react";
 import Link from "next/link";
 
+/** What a forced check reported, rendered in a dialog instead of alert(). */
+type DebugResult =
+  | {
+    ok: true;
+    status: string;
+    responseTime: string;
+    didNotify: boolean;
+    message?: string;
+  }
+  | { ok: false; message: string };
+
 interface MonitorCardProps {
   monitor: Monitor;
   onChanged?: () => Promise<void> | void;
@@ -39,6 +69,9 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [logs, setLogs] = useState<MonitorLog[] | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [debugResult, setDebugResult] = useState<DebugResult | null>(null);
   const supabase = createClient();
 
   const toggleActive = async () => {
@@ -83,14 +116,8 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
   };
 
   const deleteMonitor = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this watcher? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
+    setConfirmingDelete(false);
+    setDeleteError(null);
     setIsDeleting(true);
     try {
       // Unschedule first. If the row is removed first and this fails, the job
@@ -120,7 +147,11 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error deleting monitor:", error);
-      alert("Failed to delete watcher");
+      setDeleteError(
+        error instanceof Error
+          ? `Failed to delete watcher: ${error.message}`
+          : "Failed to delete watcher",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -142,14 +173,15 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
       });
 
       const data = result?.data ?? {};
-      alert(
-        [
-          `Status: ${data.status ?? "unknown"}`,
-          `Response time: ${data.responseTime ?? "n/a"}ms`,
-          `Notification sent: ${data.didNotify ? "yes" : "no"}`,
-          result?.message ? `\n${result.message}` : "",
-        ].filter(Boolean).join("\n"),
-      );
+      setDebugResult({
+        ok: true,
+        status: data.status ?? "unknown",
+        responseTime: data.responseTime != null
+          ? `${data.responseTime}ms`
+          : "n/a",
+        didNotify: Boolean(data.didNotify),
+        message: result?.message,
+      });
 
       // The check wrote new rows, so drop any cached history.
       setLogs(null);
@@ -157,11 +189,10 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
       if (onChanged) await onChanged();
     } catch (error) {
       console.error("Error running debug check:", error);
-      alert(
-        `Debug check failed: ${
-          error instanceof Error ? error.message : "unknown error"
-        }`,
-      );
+      setDebugResult({
+        ok: false,
+        message: error instanceof Error ? error.message : "unknown error",
+      });
     } finally {
       setIsQueuing(false);
     }
@@ -301,20 +332,48 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
                 ? <Pause className="h-4 w-4" />
                 : <Play className="h-4 w-4" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={deleteMonitor}
-              disabled={isDeleting}
-              className="text-red-600 hover:text-red-800"
+            <AlertDialog
+              open={confirmingDelete}
+              onOpenChange={setConfirmingDelete}
             >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isDeleting}
+                  className="text-red-600 hover:text-red-800"
+                  title="Delete this watcher"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-orange-800">
+                    Delete &ldquo;{monitor.name}&rdquo;?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the watcher and its scheduled check. Its
+                    history goes with it, and this cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep it</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={deleteMonitor}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Delete watcher
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-3">
+          <FormError message={deleteError} />
           {/* Pattern Info */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-orange-600">Watching for:</span>
@@ -420,6 +479,48 @@ export function MonitorCard({ monitor, onChanged }: MonitorCardProps) {
           </div>
         </div>
       </CardContent>
+
+      {/* Debug check result -- previously a newline-joined alert(). */}
+      <Dialog
+        open={debugResult !== null}
+        onOpenChange={(open) => {
+          if (!open) setDebugResult(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-orange-800">
+              {debugResult?.ok ? "Check complete" : "Check failed"}
+            </DialogTitle>
+            <DialogDescription>
+              Forced run of {monitor.name}, including the notification send.
+            </DialogDescription>
+          </DialogHeader>
+
+          {debugResult?.ok
+            ? (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt className="text-orange-600">Status</dt>
+                <dd className="text-orange-800">{debugResult.status}</dd>
+                <dt className="text-orange-600">Response time</dt>
+                <dd className="text-orange-800">{debugResult.responseTime}</dd>
+                <dt className="text-orange-600">Notification sent</dt>
+                <dd className="text-orange-800">
+                  {debugResult.didNotify ? "yes" : "no"}
+                </dd>
+                {debugResult.message && (
+                  <>
+                    <dt className="text-orange-600">Message</dt>
+                    <dd className="text-orange-800 break-words">
+                      {debugResult.message}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            )
+            : <FormError message={debugResult?.message} />}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
