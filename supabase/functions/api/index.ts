@@ -1,13 +1,16 @@
 // Single Edge Function hosting the whole API surface.
 //
-// Order matters: withOpenAPI runs BEFORE withSupabase, so the document is
-// public and undeclared paths 404 before reaching the auth gate. The handler
-// then resolves and authorizes the monitor itself.
+// Order matters. withCORS is outermost so every response carries CORS headers,
+// including the ones middlewares above the auth gate return themselves.
+// withOpenAPI then runs BEFORE withSupabase, so the document is public and
+// undeclared paths 404 before reaching the auth gate. The handler then
+// resolves and authorizes the monitor itself.
 import { pipeline } from "@supabase/middleware";
 import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
 import { logger } from "../_shared/config.ts";
 import { apiDocument } from "../_shared/openapi-document.ts";
+import { withCORS } from "../_shared/with-cors.ts";
 import { withOpenAPI } from "../_shared/with-openapi.ts";
 import {
   type CheckResult,
@@ -79,6 +82,7 @@ function checkResponse(args: {
 export default {
   fetch: pipeline(
     [
+      withCORS({}),
       withOpenAPI({ document: apiDocument }),
       withSupabase<Database>({ auth: ["user", "secret"] }),
     ],

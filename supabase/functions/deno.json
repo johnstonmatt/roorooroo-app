@@ -4,6 +4,7 @@
     "@supabase/middleware": "npm:@supabase/middleware@0.5.0",
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
     "resend": "npm:resend@6.1.2",
-    "openapi3-ts/oas31": "npm:openapi3-ts@4.6.1/oas31"
+    "openapi3-ts/oas31": "npm:openapi3-ts@4.6.1/oas31",
+    "@supabase/supabase-js/cors": "npm:@supabase/supabase-js@2/cors"
   }
 }
