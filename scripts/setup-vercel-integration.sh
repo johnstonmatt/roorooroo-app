@@ -250,18 +250,17 @@ open_url "https://vercel.com/${VERCEL_TEAM}/${VERCEL_PROJECT}/settings/environme
 step "NEXT_PUBLIC_SUPABASE_URL      -> uncheck Preview, keep Production."
 step "NEXT_PUBLIC_SUPABASE_ANON_KEY -> uncheck Preview, keep Production."
 say ""
-warn "NEXT_PUBLIC_API_BASE_URL should be DELETED entirely."
-note "The frontend now derives the Edge Function URL from the Supabase URL"
-note "(frontend/lib/api-client.ts). Auth and the function must come from the"
-note "same project -- the function checks the browser's JWT against that"
+step "NEXT_PUBLIC_API_BASE_URL       -> uncheck Preview, KEEP Production."
+warn "Do not delete this one."
+note "Production serves the API from the custom domain api.roorooroo.com, not"
+note "from <ref>.supabase.co, so Production must keep its explicit value."
+note "Unset on Preview, frontend/lib/api-client.ts derives the URL from"
+note "NEXT_PUBLIC_SUPABASE_URL instead -- which the integration points at the"
+note "branch. That matters because auth and the Edge Function must come from"
+note "the SAME project: the function verifies the browser's JWT against that"
 note "project's JWKS, so a mismatched pair 401s on every authenticated call."
-note "Leaving this var set would pin previews to production's function and"
-note "reintroduce exactly that mismatch."
-if confirm "Delete NEXT_PUBLIC_API_BASE_URL in Vercel now?"; then
-  step "Delete the NEXT_PUBLIC_API_BASE_URL row."
-else
-  SKIPPED+=("delete NEXT_PUBLIC_API_BASE_URL in Vercel (previews will 401)")
-fi
+note "Leaving a Preview value here pins previews to production's function,"
+note "whose CORS allowlist rejects *.vercel.app origins outright."
 pause "Done?"
 
 # ── Stage 5: the vars the integration does not manage ─────────────────────
