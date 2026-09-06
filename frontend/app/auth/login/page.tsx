@@ -1,7 +1,5 @@
 "use client";
 
-import type React from "react";
-
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -11,41 +9,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useActionState } from "react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Sign in directly with Supabase Auth
+  // The form owns its field values; this holds only the failure message.
+  const [error, signIn, isPending] = useActionState<string | null, FormData>(
+    async (_previous, formData) => {
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: String(formData.get("email") ?? ""),
+        password: String(formData.get("password") ?? ""),
       });
-      if (signInError) throw signInError;
+      if (signInError) {
+        return signInError.message || "Invalid email or password";
+      }
       router.push("/dashboard");
-    } catch (error: unknown) {
-      setError(
-        error instanceof Error ? error.message : "Invalid email or password",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return null;
+    },
+    null,
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-6">
@@ -66,7 +55,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin}>
+            <form action={signIn}>
               <div className="flex flex-col gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email" className="text-orange-700">
@@ -74,11 +63,10 @@ export default function LoginPage() {
                   </Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="your@email.com"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
                     className="border-orange-200 focus:border-orange-400"
                   />
                 </div>
@@ -96,24 +84,19 @@ export default function LoginPage() {
                   </div>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     className="border-orange-200 focus:border-orange-400"
                   />
                 </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                <FormError message={error} />
                 <Button
                   type="submit"
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                  disabled={isLoading}
+                  disabled={isPending}
                 >
-                  {isLoading ? "Signing in..." : "Sign In"}
+                  {isPending ? "Signing in..." : "Sign In"}
                 </Button>
               </div>
               <div className="mt-6 text-center text-sm">

@@ -1,7 +1,5 @@
 "use client";
 
-import type React from "react";
-
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -11,23 +9,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 // Mirrors auth.minimum_password_length in supabase/config.toml
 const MIN_PASSWORD_LENGTH = 6;
 
 type Status = "verifying" | "ready" | "invalid";
 
+/** The update either fails with a message or succeeds and navigates away. */
+type UpdateState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "done" };
+
 export default function ResetPasswordPage() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<Status>("verifying");
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   // The recovery link lands here with a token in the URL. This is a static
@@ -86,39 +88,45 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const [update, updatePassword, isPending] = useActionState<
+    UpdateState,
+    FormData
+  >(
+    async (_previous, formData) => {
+      const password = String(formData.get("password") ?? "");
+      const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
-      );
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        return {
+          status: "error",
+          message:
+            `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
+        };
+      }
+      if (password !== confirmPassword) {
+        return { status: "error", message: "Passwords do not match" };
+      }
 
-    setIsLoading(true);
-    try {
       const supabase = createClient();
       const { error: updateError } = await supabase.auth.updateUser({
         password,
       });
-      if (updateError) throw updateError;
+      if (updateError) {
+        return {
+          status: "error",
+          message: updateError.message ||
+            "Could not update your password. Please try again.",
+        };
+      }
+
       // updateUser leaves the recovery session signed in, so go straight in.
+      // Stay in the "done" state so the button cannot be pressed again while
+      // the navigation is in flight.
       router.push("/dashboard");
-    } catch (error: unknown) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Could not update your password. Please try again.",
-      );
-      setIsLoading(false);
-    }
-  };
+      return { status: "done" };
+    },
+    { status: "idle" },
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-6">
@@ -157,11 +165,9 @@ export default function ResetPasswordPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-6">
-                    <p className="text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                <div className="mb-6">
+                  <FormError message={error} />
+                </div>
                 <Button
                   asChild
                   className="bg-orange-500 hover:bg-orange-600 text-white"
@@ -183,7 +189,7 @@ export default function ResetPasswordPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit}>
+                <form action={updatePassword}>
                   <div className="flex flex-col gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="password" className="text-orange-700">
@@ -191,11 +197,10 @@ export default function ResetPasswordPage() {
                       </Label>
                       <Input
                         id="password"
+                        name="password"
                         type="password"
                         required
                         minLength={MIN_PASSWORD_LENGTH}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
                         className="border-orange-200 focus:border-orange-400"
                       />
                     </div>
@@ -208,25 +213,26 @@ export default function ResetPasswordPage() {
                       </Label>
                       <Input
                         id="confirmPassword"
+                        name="confirmPassword"
                         type="password"
                         required
                         minLength={MIN_PASSWORD_LENGTH}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
                         className="border-orange-200 focus:border-orange-400"
                       />
                     </div>
-                    {error && (
-                      <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                        <p className="text-sm text-red-600">{error}</p>
-                      </div>
-                    )}
+                    <FormError
+                      message={update.status === "error"
+                        ? update.message
+                        : null}
+                    />
                     <Button
                       type="submit"
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                      disabled={isLoading}
+                      disabled={isPending || update.status === "done"}
                     >
-                      {isLoading ? "Updating..." : "Update Password"}
+                      {isPending || update.status === "done"
+                        ? "Updating..."
+                        : "Update Password"}
                     </Button>
                   </div>
                 </form>
