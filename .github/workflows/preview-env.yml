@@ -1,4 +1,4 @@
-name: Preview database
+name: Preview Supabase
 
 # Surfaces the Supabase preview branch created for this PR by the Supabase
 # GitHub integration, so a reviewer can point a local frontend at the PR's own
