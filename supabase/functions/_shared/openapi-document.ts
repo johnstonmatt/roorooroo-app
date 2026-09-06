@@ -6,19 +6,36 @@ import type { OpenAPIObject } from "openapi3-ts/oas31";
  * This is not decoration: `paths` is the route table withOpenAPI enforces, so
  * an endpoint that is not declared here is not reachable.
  */
+/** The commit this deployment was built from, short form. */
+export function resolveVersion(): string {
+  return Deno.env.get("CURRENT_SHA")?.slice(0, 7) || "v0.0.0";
+}
+
+/**
+ * Which deployment the badge is looking at.
+ *
+ * `DENO_DEPLOYMENT_ID` is set on *any* deployed function, preview branches
+ * included, so on its own it labels every preview "production" -- a badge that
+ * reassures exactly when it should not. `APP_ENVIRONMENT` is set explicitly on
+ * preview branches by `.github/workflows/preview-env.yml`; production and local
+ * set nothing and keep the heuristic.
+ */
+export function resolveEnvironment(): string {
+  return Deno.env.get("APP_ENVIRONMENT") ||
+    (Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "development");
+}
+
 export const apiDocument: OpenAPIObject = {
   openapi: "3.1.0",
   info: {
     title: "RooRooRoo API",
-    version: Deno.env.get("CURRENT_SHA")?.slice(0, 7) || "v0.0.0",
+    version: resolveVersion(),
     description:
       "Website monitoring checks for RooRooRoo. Server-only endpoints: every " +
       "read and write the browser can perform goes directly to Supabase under " +
       "RLS instead of through this API.",
     // OpenAPI permits x- extensions; the dashboard status badge reads this.
-    "x-environment": Deno.env.get("DENO_DEPLOYMENT_ID")
-      ? "production"
-      : "development",
+    "x-environment": resolveEnvironment(),
   },
   servers: [{ url: "/functions/v1/api" }],
   components: {

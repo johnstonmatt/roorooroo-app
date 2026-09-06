@@ -85,6 +85,9 @@ jobs:
         if: steps.branch.outputs.found == 'true'
         env:
           BRANCH_REF: ${{ steps.branch.outputs.branch_ref }}
+          # head.sha, not github.sha: on a pull_request event the latter is the
+          # ephemeral merge commit, which matches nothing the reviewer can see.
+          CURRENT_SHA: ${{ github.event.pull_request.head.sha }}
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
@@ -123,6 +126,13 @@ jobs:
             printf 'TWILIO_ACCOUNT_SID=%s\n' "$TWILIO_ACCOUNT_SID"
             printf 'TWILIO_AUTH_TOKEN=%s\n' "$TWILIO_AUTH_TOKEN"
             printf 'TWILIO_PHONE_NUMBER=%s\n' "$TWILIO_PHONE_NUMBER"
+            # Read by _shared/openapi-document.ts for info.version, which the
+            # frontend status badge renders. Without it a preview reports
+            # "v0.0.0" and there is no way to tell which commit is live.
+            printf 'CURRENT_SHA=%s\n' "$CURRENT_SHA"
+            # Without this the branch reports itself as "production", because
+            # the fallback keys off DENO_DEPLOYMENT_ID, which is set here too.
+            printf 'APP_ENVIRONMENT=preview\n'
           } > "$env_file"
 
           # Optional: email notifications degrade gracefully without these,
