@@ -10,7 +10,12 @@ import { assertEquals } from "jsr:@std/assert@1";
 import api from "./index.ts";
 
 const ORIGIN = "https://preview.vercel.app";
-const BASE = "https://x/functions/v1/api";
+// The path the *worker* receives, which is not the URL a caller types. The
+// platform routes on https://<ref>.supabase.co/functions/v1/api/<path>, strips
+// /functions/v1, and hands the function /api/<path>. Testing against the
+// public form instead is how a basePath of "/functions/v1/api" passed every
+// test here and 404'd every request in production, preflights included.
+const BASE = "https://x/api";
 // A syntactically valid uuid, because the document says format: uuid and
 // withOpenApi enforces it. Nothing looks it up -- every test here is answered
 // before the database is reached.
@@ -168,4 +173,26 @@ Deno.test("a body the document refuses is answered before the gate", async () =>
   // Both halves reported, not just the first: the missing monitor_id and the
   // user_id that is not a uuid.
   assertEquals(violations.length, 2);
+});
+
+// withSupabase's CORS handling used to append this to Expose-Headers itself;
+// turning that off in favour of withOpenApi's meant carrying it across, or a
+// browser could see the 401 but not the reason the gate gave for it.
+Deno.test("the gate's error code stays readable cross-origin", async () => {
+  const res = await api.fetch(
+    new Request(`${BASE}/check-endpoint`, {
+      method: "POST",
+      headers: { origin: ORIGIN, "content-type": "application/json" },
+      body: JSON.stringify({ monitor_id: MONITOR_ID }),
+    }),
+  );
+  assertEquals(res.status, 401);
+  assertEquals(
+    res.headers.get("x-supabase-server-error"),
+    "MISSING_CREDENTIALS",
+  );
+  const exposed = (res.headers.get("access-control-expose-headers") ?? "")
+    .split(",").map((h) => h.trim().toLowerCase());
+  assertEquals(exposed.includes("x-supabase-server-error"), true);
+  await res.body?.cancel();
 });

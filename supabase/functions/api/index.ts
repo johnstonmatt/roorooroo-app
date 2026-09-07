@@ -106,12 +106,17 @@ function checkResponse(args: {
 }
 
 /**
- * The gateway forwards /functions/v1/<function>/<path> with the function name
- * still in the pathname, while the document describes paths relative to its
- * server. Same string as `servers[0].url` in apiDocument, and for the same
- * reason: it is where this API is mounted.
+ * Where this API is mounted *from the worker's point of view*, which is not
+ * what its public URL says.
+ *
+ * A caller fetches /functions/v1/api/<path>; the platform routes on that,
+ * strips /functions/v1, and hands the worker /api/<path> with the function
+ * name still on the front. So this is deliberately not `servers[0].url` in
+ * apiDocument -- that field describes the public prefix, and setting basePath
+ * to it makes every single request a 404, preflights included, because nothing
+ * the worker ever sees starts with it.
  */
-const BASE_PATH = "/functions/v1/api";
+const BASE_PATH = "/api";
 
 /**
  * Request headers allowed on every route, on top of the ones withOpenApi
@@ -146,7 +151,7 @@ export default {
         document: apiDocument,
         basePath: BASE_PATH,
         // Reference paths are matched against the whole pathname, before
-        // basePath is stripped, so they carry the prefix themselves. The
+        // basePath is stripped, so they repeat BASE_PATH themselves. The
         // document keeps the /openapi.json it has always been served from --
         // that is where the dashboard status badge looks -- and the Scalar
         // page is new alongside it, rendered from the same document rather
@@ -158,7 +163,18 @@ export default {
         // Who may call an API is the one thing its description does not say,
         // so `origin` is the only part of this not derived. Wildcard, as
         // before: the credential is what protects the route, never the origin.
-        cors: { origin: "*", allowedHeaders: PLATFORM_CORS_HEADERS },
+        //
+        // x-supabase-server-error is exposed because withSupabase's own CORS
+        // did it and we turned that off: the gate names its refusal there
+        // (MISSING_CREDENTIALS, and so on) and a non-safelisted response
+        // header is unreadable cross-origin unless it is listed. Not
+        // derivable -- the header is the gate's, so no Response Object in the
+        // document declares it.
+        cors: {
+          origin: "*",
+          allowedHeaders: PLATFORM_CORS_HEADERS,
+          exposedHeaders: ["x-supabase-server-error"],
+        },
       }),
       // cors: "disabled" because withOpenApi above already answered every
       // preflight and stamps every response on the way out. Left on, this

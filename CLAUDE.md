@@ -227,7 +227,10 @@ flags.
   top of the per-operation set, because those belong to the gateway rather than
   to any operation -- without them the status badge's own preflight fails, since
   `/openapi.json` declares `security: []` and so derives neither credential
-  header.
+  header. `exposedHeaders` carries over one thing withSupabase's handling used
+  to do on its own: `x-supabase-server-error` is where the gate names its
+  refusal (`MISSING_CREDENTIALS` and friends), and a non-safelisted response
+  header is unreadable cross-origin unless it is listed.
 - **Routing and request validation**: `withOpenApi` from
   `jsr:@croutonian/with-openapi`. `document.paths` is the route table, so there
   is no second list to drift from it: an undeclared path is a 404, an undeclared
@@ -238,11 +241,17 @@ flags.
   `ctx.openapi.body` rather than re-deriving those checks. Adding an endpoint,
   or tightening what one accepts, means editing `_shared/openapi-document.ts`.
   Two pieces of config are _not_ in the document and have to be kept in step
-  with it by hand: `basePath`, which must equal `servers[0].url`
-  (`/functions/v1/api`, the mount point the gateway forwards), and the
-  `reference` paths, which are matched against the whole pathname before
-  `basePath` is stripped and so carry the prefix themselves. Both are checked by
-  `api/index_test.ts`, since nothing else would catch them drifting.
+  with it by hand. `basePath` is `/api` -- the mount as the _worker_ sees it,
+  which is deliberately **not** `servers[0].url`: the platform routes on the
+  public `/functions/v1/api/<path>`, strips `/functions/v1`, and hands the
+  function `/api/<path>`. `servers[0].url` describes the public prefix and is
+  right to keep, but setting `basePath` to the same string 404s every request,
+  preflights included, because nothing the worker sees starts with it. The
+  `reference` paths are the second: matched against the whole pathname before
+  `basePath` is stripped, so they repeat `/api` themselves. Both are covered by
+  `api/index_test.ts`, which builds its requests from the path the worker
+  receives rather than the URL a caller types -- testing the public form is
+  exactly how the wrong `basePath` passed locally and 404d in production.
 - **Client privilege**: the handler picks the client by mode -- `ctx.supabase`
   (RLS-scoped) for a user, `ctx.supabaseAdmin` for cron, which has no
   `auth.uid()` to scope by. So a user's own policies are a backstop and the
