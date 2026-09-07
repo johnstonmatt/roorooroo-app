@@ -1,10 +1,15 @@
 // Single Edge Function hosting the whole API surface.
 //
-// Order matters. withCORS is outermost so every response carries CORS headers,
-// including the ones middlewares above the auth gate return themselves.
-// withOpenAPI then runs BEFORE withSupabase, so the document is public and
-// undeclared paths 404 before reaching the auth gate. The handler then
-// resolves and authorizes the monitor itself.
+// The pipeline is withCORS, then withOpenAPI, then withSupabase, then the
+// handler, and every position in that order is load-bearing:
+//
+//   withCORS is outermost so the Response supplied by withOpenAPI
+//   carries cors headers before authentication
+//
+//   withOpenAPI sits above withSupabase so the document stays public and an
+//   undeclared path 404s before it ever reaches the gate.
+//
+// Authorizing the monitor is then the handler's own job.
 import { pipeline } from "@supabase/middleware";
 import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
@@ -36,17 +41,16 @@ function errorResponse(
   error: string,
   extra: Record<string, unknown> = {},
 ): Response {
-  // `success` means "the check ran", so it is false on every error path. It
-  // used to be seeded from a mutable local, which reported success: false on
-  // one of the completed-check paths too.
+  // `success` means "the check ran", so it is false on every error path.
+  // Centralised here so no branch can disagree about that.
   return Response.json({ success: false, error, ...extra }, { status });
 }
 
 /**
  * One shape for every completed check, so a caller never has to work out
- * which branch produced the response. The four return paths this replaced
- * disagreed on `success`, omitted `contentSnippet`/`checkedAt` in some
- * branches, and reported `statusChanged: true` unconditionally.
+ * which branch produced the response: `success` is always true, every field
+ * is always present, and `statusChanged` always reports the real comparison.
+ * The four return paths this replaced each broke one of those.
  */
 function checkResponse(args: {
   monitorId: string;
@@ -88,13 +92,15 @@ export default {
     ],
     async (req, ctx) => {
       try {
-        // Least privilege per caller. A user gets the RLS-scoped client, so
-        // their own policies are a backstop and the user_id filter below is
-        // defence in depth rather than the only thing between them and
-        // another user's rows. Cron has no auth.uid() to scope by and
-        // legitimately acts for a user it is not, so it needs the admin
-        // client -- note ctx.supabase is RLS-restricted in secret mode too,
-        // despite the docs describing it as full access.
+        // Least privilege per caller: a user gets the RLS-scoped client,
+        // cron gets the admin one. Cron has no auth.uid() to scope by and
+        // legitimately acts for a user it is not, so the scoped client cannot
+        // serve it -- note ctx.supabase stays RLS-restricted in secret mode
+        // too, despite the docs describing it as full access.
+        //
+        // For a user, those policies are a backstop, which makes the user_id
+        // filter below defence in depth rather than the only thing between
+        // them and another user's rows.
         const supabase = ctx.authMode === "user"
           ? ctx.supabase
           : ctx.supabaseAdmin;
@@ -145,9 +151,9 @@ export default {
         // check into an alert.
         const force = Boolean(body.force) && ctx.authMode === "user";
 
-        // The generated types report these as nullable / raw Json, since jsonb
-        // and a nullable text column carry no shape in the schema. Narrow once
-        // here rather than casting at each use.
+        // A jsonb column and a nullable text column carry no shape in the
+        // schema, so the generated types report these as raw Json and
+        // nullable. Narrow once here rather than casting at each use.
         const lastStatus = (row.last_status ?? "pending") as Status;
         const notificationChannels = parseNotificationChannels(
           row.notification_channels,
@@ -155,8 +161,8 @@ export default {
 
         const checkResult = await performMonitorCheck(row);
         const newStatus = checkResult.status;
-        // Whether the world changed -- independent of whether that earns a
-        // notification, which `force` also influences.
+        // Did the observed status change? Separate from whether that earns
+        // a notification, which `force` also feeds into.
         const statusChanged = newStatus !== lastStatus;
         const checkedAt = new Date().toISOString();
 
@@ -167,9 +173,9 @@ export default {
           .update({ last_checked: checkedAt, last_status: newStatus })
           .eq("id", row.id);
 
-        // supabase-js resolves with `{ error }` rather than rejecting, so this
-        // has to be read. It previously went unchecked entirely, and a monitor
-        // that failed to record its status would re-alert on every run.
+        // supabase-js resolves with `{ error }` rather than rejecting, so a
+        // failed update is silent unless the error is read. Left unread, a
+        // monitor that never records its new status re-alerts on every run.
         if (updateError) {
           logger.error(
             `Failed to update monitor ${row.id}: ${updateError.message}`,
@@ -220,8 +226,8 @@ export default {
             errorMessage: checkResult.errorMessage,
           }, notificationChannels);
 
-        // sendNotifications catches per-channel failures and never rejects, so
-        // "it did not throw" says nothing. Only the results do.
+        // sendNotifications catches per-channel failures and never rejects,
+        // so "it did not throw" says nothing -- only the results do.
         const didNotify = results.some((r) => r.success);
         const failed = results.filter((r) => !r.success);
 
