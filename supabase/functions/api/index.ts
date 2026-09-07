@@ -1,22 +1,39 @@
 // Single Edge Function hosting the whole API surface.
 //
-// The pipeline is withSupabase, then withOpenAPI, then the handler.
+// The pipeline is withOpenApi, then withSupabase, then the handler.
 //
-// withSupabase is outermost, so its CORS handling covers every response --
-// including withOpenAPI's document and 404, which is the whole reason a
-// separate withCORS layer used to exist. The price is that `none` has to be
-// an accepted auth mode so an anonymous caller can reach the document at all,
-// and `none` is function-scoped: it lets an unauthenticated request through
-// to /check-endpoint too. The handler refuses it explicitly below. That
-// invariant used to live in the auth config; here it lives in a guard clause.
+// withOpenApi is outermost, which is what makes /openapi.json and /reference
+// genuinely public: they are answered above the gate, so no credential is
+// read for them and a caller presenting a bad one is no longer told 401 for a
+// public document. Under the previous order that was a real failure, not a
+// hypothetical -- the legacy anon key is not a valid user JWT, and
+// api-client.ts sends it as a bearer whenever there is no session.
 //
-// Authorizing the monitor is then the handler's own job.
+// Being outermost also makes CORS withOpenApi's, since nothing below it sees
+// a request it answers itself. withSupabase's own handling is switched off so
+// exactly one layer stamps headers, and most of the policy is then read off
+// the document: a preflight for /check-endpoint advertises POST rather than
+// the blanket verb list a hand-written policy has to guess at.
+//
+// The gate no longer needs a mode that matches unconditionally. `none` existed
+// only so an anonymous caller could reach the document from below it; with the
+// document served above it, an anonymous /check-endpoint request is refused by
+// the gate rather than by a guard clause in the handler.
+//
+// What the order costs: routing and body validation now run before any
+// credential is looked at, so an unauthenticated caller sending a malformed
+// body gets a 400 naming the violation where it used to get a 401. The
+// document is public, so the schema it leaks is not a secret -- but the
+// validator does now run for callers the gate would have turned away.
+//
+// Authorizing the monitor stays the handler's job: the document says what a
+// request must look like, never whose monitor it may name.
+import { withOpenApi } from "@croutonian/with-openapi";
 import { pipeline } from "@supabase/middleware";
 import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
 import { logger } from "../_shared/config.ts";
 import { apiDocument } from "../_shared/openapi-document.ts";
-import { withOpenAPI } from "../_shared/with-openapi.ts";
 import {
   type CheckResult,
   getNotificationSpec,
@@ -30,8 +47,13 @@ import {
 } from "../_shared/notifications.ts";
 import type { Status } from "../_shared/notifications.ts";
 
+/**
+ * The /check-endpoint body as the handler receives it -- after withOpenApi has
+ * checked it against the document, which is why `monitor_id` is not optional
+ * here when it is optional in a hand-parsed body.
+ */
 interface RequestBody {
-  monitor_id?: string;
+  monitor_id: string;
   user_id?: string;
   force?: boolean;
 }
@@ -83,23 +105,69 @@ function checkResponse(args: {
   });
 }
 
+/**
+ * The gateway forwards /functions/v1/<function>/<path> with the function name
+ * still in the pathname, while the document describes paths relative to its
+ * server. Same string as `servers[0].url` in apiDocument, and for the same
+ * reason: it is where this API is mounted.
+ */
+const BASE_PATH = "/functions/v1/api";
+
+/**
+ * Request headers allowed on every route, on top of the ones withOpenApi
+ * derives from each operation.
+ *
+ * These belong to the platform rather than to this API, which is why no
+ * document can describe them per-operation. `apikey` and the bearer are what
+ * the Functions gateway routes on, and api-client.ts attaches both to every
+ * request including the one for the public document, whose operation declares
+ * `security: []` and so derives neither; `content-type` rides along on that
+ * GET the same way; supabase-js adds the rest (client identity, its retry
+ * counter, W3C trace propagation) to anything sent through `functions.invoke`.
+ *
+ * This is the set withSupabase used to stamp on every response, kept whole so
+ * moving CORS between layers does not quietly narrow what a browser may send.
+ */
+const PLATFORM_CORS_HEADERS = [
+  "authorization",
+  "apikey",
+  "content-type",
+  "x-client-info",
+  "x-retry-count",
+  "traceparent",
+  "tracestate",
+  "baggage",
+];
+
 export default {
   fetch: pipeline(
     [
-      withSupabase<Database>({ auth: ["user", "secret", "none"] }),
-      withOpenAPI({ document: apiDocument }),
+      withOpenApi({
+        document: apiDocument,
+        basePath: BASE_PATH,
+        // Reference paths are matched against the whole pathname, before
+        // basePath is stripped, so they carry the prefix themselves. The
+        // document keeps the /openapi.json it has always been served from --
+        // that is where the dashboard status badge looks -- and the Scalar
+        // page is new alongside it, rendered from the same document rather
+        // than a second copy that could disagree with it.
+        reference: {
+          path: `${BASE_PATH}/reference`,
+          documentPath: `${BASE_PATH}/openapi.json`,
+        },
+        // Who may call an API is the one thing its description does not say,
+        // so `origin` is the only part of this not derived. Wildcard, as
+        // before: the credential is what protects the route, never the origin.
+        cors: { origin: "*", allowedHeaders: PLATFORM_CORS_HEADERS },
+      }),
+      // cors: "disabled" because withOpenApi above already answered every
+      // preflight and stamps every response on the way out. Left on, this
+      // layer would re-advertise a blanket GET/POST/PUT/PATCH/DELETE/OPTIONS
+      // on responses whose route accepts one verb.
+      withSupabase<Database>({ auth: ["user", "secret"], cors: "disabled" }),
     ],
-    async (req, ctx) => {
+    async (_req, ctx) => {
       try {
-        // `none` is in the auth config only so /openapi.json can be served
-        // from below the gate. No route that reaches this handler is public,
-        // so an anonymous caller is refused here -- before the branches below,
-        // which would otherwise read "not user" as "cron" and hand it the
-        // admin client plus an attacker-chosen user_id.
-        if (ctx.authMode === "none") {
-          return errorResponse(401, "authentication required");
-        }
-
         // Least privilege per caller: a user gets the RLS-scoped client,
         // cron gets the admin one. Cron has no auth.uid() to scope by and
         // legitimately acts for a user it is not, so the scoped client cannot
@@ -115,16 +183,19 @@ export default {
           ? ctx.supabaseAdmin
           : ctx.supabase;
 
-        let body: RequestBody;
-        try {
-          body = await req.json();
-        } catch {
-          return errorResponse(400, "body is not valid JSON");
+        // Not a path a request can take: onUnknownRoute and onUnknownMethod
+        // both default to "reject", so withOpenApi answered anything it could
+        // not match before this ran. It is here to narrow the union.
+        if (!ctx.openapi.matched) {
+          return errorResponse(404, "Not Found");
         }
 
-        if (!body.monitor_id) {
-          return errorResponse(400, "monitor_id is required");
-        }
+        // Read, parsed and checked against the document upstream -- a body
+        // that is not JSON, omits monitor_id, or spells it as something other
+        // than a uuid was already answered 400, naming the violation. The cast
+        // is the one thing the document cannot supply: a schema is data, so
+        // ctx.openapi.body is `unknown` by construction.
+        const body = ctx.openapi.body as RequestBody;
 
         // The security rule: a user-mode caller is pinned to the subject in
         // their verified JWT, and any user_id in the body is discarded. Only

@@ -117,22 +117,28 @@ deno task fns:deploy
   `supabase/functions/_shared/`
 - **Runtime**: Deno 2
 - **Composition**: one Edge Function named `api`, exporting the nested form
-  (`export default { fetch: pipeline(...) }`). No HTTP framework and no router:
-  `pipeline` from `@supabase/middleware` composes two layers around a single
-  handler, and `withOpenAPI` does the only path matching there is.
-- **Pipeline order** (`api/index.ts`): `withSupabase` → `withOpenAPI` → handler.
-  `withSupabase` is outermost so its CORS handling covers every response,
-  `withOpenAPI`'s included -- which is why there is no separate CORS layer. The
-  gate therefore runs before routing: every request, including one for the
-  public document, is authenticated first.
+  (`export default { fetch: pipeline(...) }`). No HTTP framework: `pipeline`
+  from `@supabase/middleware` composes two layers around a single handler, and
+  `withOpenApi` from `jsr:@croutonian/with-openapi` is the router.
+- **Pipeline order** (`api/index.ts`): `withOpenApi` → `withSupabase` → handler.
+  `withOpenApi` is outermost, so `/openapi.json` and `/reference` are answered
+  above the gate and are genuinely public -- no credential is read for them, and
+  a bad one is not grounds to refuse them. Routing and body validation therefore
+  run before authentication: an unauthenticated caller sending a malformed body
+  gets a 400 naming the violation rather than a 401. That is the price of the
+  order, and it is a small one, because the document publishes that schema
+  anyway.
 - **Purpose**: Server-only tasks (monitor checks, notifications)
 - **Endpoints**:
   - `POST /functions/v1/api/check-endpoint` - Execute a monitor check (pg_cron
     presents a secret key, the dashboard presents the caller's JWT; an anonymous
-    caller reaches the handler as `none` and is refused there)
+    caller is refused by the gate)
   - `GET /functions/v1/api/openapi.json` - The OpenAPI 3.1 document (public;
     serving it also proves the function is up). There is no `/status` route;
     this replaced it.
+  - `GET /functions/v1/api/reference` - Scalar API reference, rendered from the
+    same document. Both this and `/openapi.json` are answered by `withOpenApi`
+    ahead of route matching, so neither needs to be a real route.
 
 ### Database Schema
 
@@ -193,29 +199,50 @@ flags.
 ### Authentication & Authorization
 
 - **Frontend**: Uses Supabase Auth with email/password
-- **Edge Function**: `withSupabase({ auth: ['user', 'secret', 'none'] })`.
-  `user` verifies the JWT against the local JWKS; `secret` matches an
-  `sb_secret_` key in the `apikey` header; `none` matches unconditionally and
-  exists only so `/openapi.json` can be served from below the gate.
-  `ctx.authMode` tells the handler which matched -- in `user` mode the verified
-  subject replaces any `user_id` in the request body, so a caller cannot check
-  someone else's monitor. **`none` is function-scoped, so it admits anonymous
-  requests to `/check-endpoint` as well; the handler rejects
-  `authMode ===
-  'none'` as its first act.** That is the only thing keeping the
-  route non-public -- do not remove it, and note the client/`user_id` branches
-  below test for `'secret'` positively so a new mode fails closed.
+- **Edge Function**:
+  `withSupabase({ auth: ['user', 'secret'], cors: 'disabled' })`. `user`
+  verifies the JWT against the local JWKS; `secret` matches an `sb_secret_` key
+  in the `apikey` header. There is no third mode: `none` used to be there only
+  so `/openapi.json` could be served from below the gate, and serving it above
+  the gate instead removed the reason. Every route the gate now covers requires
+  a credential, so an anonymous `/check-endpoint` request is refused by the gate
+  rather than by a guard clause in the handler. `ctx.authMode` tells the handler
+  which mode matched -- in `user` mode the verified subject replaces any
+  `user_id` in the request body, so a caller cannot check someone else's
+  monitor. Note the client/`user_id` branches below test for `'secret'`
+  positively, so a mode added to the config later fails closed.
 - **Database**: RLS policies ensure users only access their own data
-- **CORS**: entirely `withSupabase`'s job. As the outermost layer it answers
-  preflights and stamps the canonical `@supabase/supabase-js/cors` wildcard set
-  on every response on the way out, `withOpenAPI`'s document and 404 included.
-  This is the reason `withOpenAPI` sits below the gate at all. CORS is not the
-  access control here; credentials are.
-- **Routing**: `withOpenAPI` (also built with `defineMiddleware`) serves the
-  document and rejects any path it does not declare. `document.paths` is the
-  route table, so there is no second list to drift from it. Typed with
-  `openapi3-ts` (`OpenAPIObject`, type-only import, no cold-start cost). Adding
-  an endpoint means declaring it in `_shared/openapi-document.ts`.
+- **CORS**: entirely `withOpenApi`'s job, which is why `withSupabase` is
+  configured `cors: 'disabled'` -- one layer stamps headers, so the two cannot
+  disagree. It has to be the outermost layer: nothing below sees a request that
+  layer answers itself, so the document, the reference page and every refusal
+  would otherwise reach a browser with no headers at all. Most of the policy is
+  read off the document -- `Access-Control-Allow-Methods` is the operations a
+  path declares, so a preflight for `/check-endpoint` advertises `POST` and not
+  the blanket verb list `withSupabase` used to send. `origin` is the one thing a
+  document cannot say and is set to `*`, as before; CORS is not the access
+  control here, credentials are. `PLATFORM_CORS_HEADERS` in `api/index.ts` adds
+  the request headers the platform makes callers send (`apikey`, the bearer,
+  `content-type`, and supabase-js's `x-client-info` / retry / trace headers) on
+  top of the per-operation set, because those belong to the gateway rather than
+  to any operation -- without them the status badge's own preflight fails, since
+  `/openapi.json` declares `security: []` and so derives neither credential
+  header.
+- **Routing and request validation**: `withOpenApi` from
+  `jsr:@croutonian/with-openapi`. `document.paths` is the route table, so there
+  is no second list to drift from it: an undeclared path is a 404, an undeclared
+  method a 405 with an `Allow` header. It also checks each request against the
+  matched operation, so a `/check-endpoint` body that is not JSON, omits
+  `monitor_id`, or spells it as something other than a uuid is answered 400
+  before the handler runs -- the handler reads the parsed body off
+  `ctx.openapi.body` rather than re-deriving those checks. Adding an endpoint,
+  or tightening what one accepts, means editing `_shared/openapi-document.ts`.
+  Two pieces of config are _not_ in the document and have to be kept in step
+  with it by hand: `basePath`, which must equal `servers[0].url`
+  (`/functions/v1/api`, the mount point the gateway forwards), and the
+  `reference` paths, which are matched against the whole pathname before
+  `basePath` is stripped and so carry the prefix themselves. Both are checked by
+  `api/index_test.ts`, since nothing else would catch them drifting.
 - **Client privilege**: the handler picks the client by mode -- `ctx.supabase`
   (RLS-scoped) for a user, `ctx.supabaseAdmin` for cron, which has no
   `auth.uid()` to scope by. So a user's own policies are a backstop and the
@@ -289,9 +316,10 @@ supabase/
   functions/
     deno.json       - import map (Deno workspace member)
     api/index.ts    - the pipeline: auth gate -> openapi -> handler
+    api/index_test.ts - pipeline-level tests (gate/routing/CORS wiring)
     _shared/
-      with-openapi.ts      - route table + document middleware
-      openapi-document.ts  - the OpenAPI document (also the route table)
+      openapi-document.ts  - the OpenAPI document (also the route table
+                             and the request schema)
       monitor.ts           - fetch, pattern matching, check logging
       notifications.ts     - email/SMS dispatch and notification logging
       sms-service.ts       - Twilio transport with retry
@@ -450,17 +478,6 @@ especially anything destructive.
 - Regex patterns that can backtrack catastrophically are rejected rather than
   run; see Pattern Matching Types
 - No Realtime subscriptions; the dashboard re-queries instead
-- `/openapi.json` is served from below the auth gate, so it is public only for a
-  caller that sends no credentials or valid ones. A bearer token that is not a
-  valid user JWT is a `reject` inside the gate's `user` mode, which stops the
-  chain before `none` is tried, so the document answers 401. The legacy anon key
-  is such a token (no `kid` header, no `sub` claim) and
-  `frontend/lib/api-client.ts` sends it as a bearer whenever there is no
-  session. See `with-openapi_test.ts`
-- Serving the document below the gate also means it depends on `SUPABASE_URL`, a
-  publishable key and a JWKS being resolvable -- `ctx.supabase` is constructed
-  eagerly, before routing. `deno task fns:test` supplies placeholders for all
-  three
 
 ### Stale artifacts
 
