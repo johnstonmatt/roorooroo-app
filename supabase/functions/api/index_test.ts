@@ -196,3 +196,14 @@ Deno.test("the gate's error code stays readable cross-origin", async () => {
   assertEquals(exposed.includes("x-supabase-server-error"), true);
   await res.body?.cancel();
 });
+
+// The other half of the mount split, and the one that fails quietly: the page
+// itself loads, then reports "Document could not be loaded" because the URL
+// baked into it is the path the worker serves rather than the one a browser
+// can reach. Nothing else in the suite would notice -- the document is served
+// correctly, it is only advertised wrongly.
+Deno.test("the reference page sends the browser to the public document URL", async () => {
+  const res = await api.fetch(new Request(`${BASE}/reference`));
+  const html = await res.text();
+  assertEquals(html.includes('"url":"/functions/v1/api/openapi.json"'), true);
+});
