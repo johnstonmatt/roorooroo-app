@@ -118,18 +118,18 @@ deno task fns:deploy
 - **Runtime**: Deno 2
 - **Composition**: one Edge Function named `api`, exporting the nested form
   (`export default { fetch: pipeline(...) }`). No HTTP framework and no router:
-  `pipeline` from `@supabase/middleware` composes three layers around a single
+  `pipeline` from `@supabase/middleware` composes two layers around a single
   handler, and `withOpenAPI` does the only path matching there is.
-- **Pipeline order** (`api/index.ts`): `withCORS` → `withOpenAPI` →
-  `withSupabase` → handler. CORS is outermost so every response carries CORS
-  headers, including ones that short-circuit above the auth gate. `withOpenAPI`
-  runs before `withSupabase` so the document is public and undeclared paths 404
-  before reaching the auth gate.
+- **Pipeline order** (`api/index.ts`): `withSupabase` → `withOpenAPI` → handler.
+  `withSupabase` is outermost so its CORS handling covers every response,
+  `withOpenAPI`'s included -- which is why there is no separate CORS layer. The
+  gate therefore runs before routing: every request, including one for the
+  public document, is authenticated first.
 - **Purpose**: Server-only tasks (monitor checks, notifications)
 - **Endpoints**:
-  - `POST /functions/v1/api/check-endpoint` - Execute a monitor check
-    (`auth: ['user', 'secret']` -- pg_cron presents a secret key, the dashboard
-    presents the caller's JWT)
+  - `POST /functions/v1/api/check-endpoint` - Execute a monitor check (pg_cron
+    presents a secret key, the dashboard presents the caller's JWT; an anonymous
+    caller reaches the handler as `none` and is refused there)
   - `GET /functions/v1/api/openapi.json` - The OpenAPI 3.1 document (public;
     serving it also proves the function is up). There is no `/status` route;
     this replaced it.
@@ -193,21 +193,24 @@ flags.
 ### Authentication & Authorization
 
 - **Frontend**: Uses Supabase Auth with email/password
-- **Edge Function**: `withSupabase` auth modes. `user` verifies the JWT against
-  the local JWKS; `secret` matches an `sb_secret_` key in the `apikey` header.
+- **Edge Function**: `withSupabase({ auth: ['user', 'secret', 'none'] })`.
+  `user` verifies the JWT against the local JWKS; `secret` matches an
+  `sb_secret_` key in the `apikey` header; `none` matches unconditionally and
+  exists only so `/openapi.json` can be served from below the gate.
   `ctx.authMode` tells the handler which matched -- in `user` mode the verified
   subject replaces any `user_id` in the request body, so a caller cannot check
-  someone else's monitor. `/openapi.json` never reaches this layer at all,
-  because `withOpenAPI` answers it first.
+  someone else's monitor. **`none` is function-scoped, so it admits anonymous
+  requests to `/check-endpoint` as well; the handler rejects
+  `authMode ===
+  'none'` as its first act.** That is the only thing keeping the
+  route non-public -- do not remove it, and note the client/`user_id` branches
+  below test for `'secret'` positively so a new mode fails closed.
 - **Database**: RLS policies ensure users only access their own data
-- **CORS**: `withCORS` (built with `defineMiddleware`) is the outermost layer.
-  It answers preflights itself and otherwise only _backfills_ headers on the way
-  out, so `withSupabase`'s own CORS handling wins where it applies. It exists
-  because `withOpenAPI` short-circuits above the auth gate and shipped answering
-  200 with no `Access-Control-Allow-Origin`, which made the status badge read
-  "Disconnected" on every Vercel preview while the API was healthy. The header
-  set is the canonical one from `@supabase/supabase-js/cors` -- a wildcard
-  origin. CORS is not the access control here; credentials are.
+- **CORS**: entirely `withSupabase`'s job. As the outermost layer it answers
+  preflights and stamps the canonical `@supabase/supabase-js/cors` wildcard set
+  on every response on the way out, `withOpenAPI`'s document and 404 included.
+  This is the reason `withOpenAPI` sits below the gate at all. CORS is not the
+  access control here; credentials are.
 - **Routing**: `withOpenAPI` (also built with `defineMiddleware`) serves the
   document and rejects any path it does not declare. `document.paths` is the
   route table, so there is no second list to drift from it. Typed with
@@ -285,9 +288,8 @@ supabase/
     database.types.ts    - Generated types (deno task db:gen-types)
   functions/
     deno.json       - import map (Deno workspace member)
-    api/index.ts    - the pipeline: cors -> openapi -> auth gate -> handler
+    api/index.ts    - the pipeline: auth gate -> openapi -> handler
     _shared/
-      with-cors.ts         - outermost CORS layer
       with-openapi.ts      - route table + document middleware
       openapi-document.ts  - the OpenAPI document (also the route table)
       monitor.ts           - fetch, pattern matching, check logging
@@ -448,6 +450,17 @@ especially anything destructive.
 - Regex patterns that can backtrack catastrophically are rejected rather than
   run; see Pattern Matching Types
 - No Realtime subscriptions; the dashboard re-queries instead
+- `/openapi.json` is served from below the auth gate, so it is public only for a
+  caller that sends no credentials or valid ones. A bearer token that is not a
+  valid user JWT is a `reject` inside the gate's `user` mode, which stops the
+  chain before `none` is tried, so the document answers 401. The legacy anon key
+  is such a token (no `kid` header, no `sub` claim) and
+  `frontend/lib/api-client.ts` sends it as a bearer whenever there is no
+  session. See `with-openapi_test.ts`
+- Serving the document below the gate also means it depends on `SUPABASE_URL`, a
+  publishable key and a JWKS being resolvable -- `ctx.supabase` is constructed
+  eagerly, before routing. `deno task fns:test` supplies placeholders for all
+  three
 
 ### Stale artifacts
 

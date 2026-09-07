@@ -1,13 +1,14 @@
 // Single Edge Function hosting the whole API surface.
 //
-// The pipeline is withCORS, then withOpenAPI, then withSupabase, then the
-// handler, and every position in that order is load-bearing:
+// The pipeline is withSupabase, then withOpenAPI, then the handler.
 //
-//   withCORS is outermost so the Response supplied by withOpenAPI
-//   carries cors headers before authentication
-//
-//   withOpenAPI sits above withSupabase so the document stays public and an
-//   undeclared path 404s before it ever reaches the gate.
+// withSupabase is outermost, so its CORS handling covers every response --
+// including withOpenAPI's document and 404, which is the whole reason a
+// separate withCORS layer used to exist. The price is that `none` has to be
+// an accepted auth mode so an anonymous caller can reach the document at all,
+// and `none` is function-scoped: it lets an unauthenticated request through
+// to /check-endpoint too. The handler refuses it explicitly below. That
+// invariant used to live in the auth config; here it lives in a guard clause.
 //
 // Authorizing the monitor is then the handler's own job.
 import { pipeline } from "@supabase/middleware";
@@ -15,7 +16,6 @@ import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
 import { logger } from "../_shared/config.ts";
 import { apiDocument } from "../_shared/openapi-document.ts";
-import { withCORS } from "../_shared/with-cors.ts";
 import { withOpenAPI } from "../_shared/with-openapi.ts";
 import {
   type CheckResult,
@@ -86,12 +86,20 @@ function checkResponse(args: {
 export default {
   fetch: pipeline(
     [
-      withCORS({}),
+      withSupabase<Database>({ auth: ["user", "secret", "none"] }),
       withOpenAPI({ document: apiDocument }),
-      withSupabase<Database>({ auth: ["user", "secret"] }),
     ],
     async (req, ctx) => {
       try {
+        // `none` is in the auth config only so /openapi.json can be served
+        // from below the gate. No route that reaches this handler is public,
+        // so an anonymous caller is refused here -- before the branches below,
+        // which would otherwise read "not user" as "cron" and hand it the
+        // admin client plus an attacker-chosen user_id.
+        if (ctx.authMode === "none") {
+          return errorResponse(401, "authentication required");
+        }
+
         // Least privilege per caller: a user gets the RLS-scoped client,
         // cron gets the admin one. Cron has no auth.uid() to scope by and
         // legitimately acts for a user it is not, so the scoped client cannot
@@ -101,9 +109,11 @@ export default {
         // For a user, those policies are a backstop, which makes the user_id
         // filter below defence in depth rather than the only thing between
         // them and another user's rows.
-        const supabase = ctx.authMode === "user"
-          ? ctx.supabase
-          : ctx.supabaseAdmin;
+        // Tested positively for "secret" rather than negatively for "user",
+        // so a mode added to the config later fails closed.
+        const supabase = ctx.authMode === "secret"
+          ? ctx.supabaseAdmin
+          : ctx.supabase;
 
         let body: RequestBody;
         try {
@@ -119,9 +129,9 @@ export default {
         // The security rule: a user-mode caller is pinned to the subject in
         // their verified JWT, and any user_id in the body is discarded. Only
         // secret mode (pg_cron) is trusted to name a user.
-        const userId = ctx.authMode === "user"
-          ? ctx.userClaims?.id
-          : body.user_id;
+        const userId = ctx.authMode === "secret"
+          ? body.user_id
+          : ctx.userClaims?.id;
 
         if (!userId) {
           return errorResponse(400, "user_id is required for this caller");

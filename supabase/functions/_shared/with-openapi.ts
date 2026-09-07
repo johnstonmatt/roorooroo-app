@@ -28,10 +28,14 @@ export interface APIRouteContribution {
  * drift from it. A declared path falls through to whatever follows; anything
  * else 404s here.
  *
- * Placed *before* `withSupabase`, so the document is reachable without
- * credentials and the auth gate only ever sees real routes. Disclosing the
- * path list to unauthenticated callers is intentional and consistent: the
- * document that lists them is itself public.
+ * Placed *after* `withSupabase`, so every response it produces passes back
+ * through the auth layer's CORS handling on the way out and this middleware
+ * needs no CORS of its own. The cost is that the gate runs first: reaching
+ * the document requires `none` in the auth config, and a request carrying a
+ * bearer token that is not a valid user JWT is rejected by the gate before
+ * this layer is ever consulted. Disclosing the path list to unauthenticated
+ * callers is intentional and consistent: the document that lists them is
+ * itself public.
  */
 export const withOpenAPI: Middleware<
   "apiRoute",
