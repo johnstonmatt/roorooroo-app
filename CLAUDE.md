@@ -117,22 +117,28 @@ deno task fns:deploy
   `supabase/functions/_shared/`
 - **Runtime**: Deno 2
 - **Composition**: one Edge Function named `api`, exporting the nested form
-  (`export default { fetch: pipeline(...) }`). No HTTP framework and no router:
-  `pipeline` from `@supabase/middleware` composes three layers around a single
-  handler, and `withOpenAPI` does the only path matching there is.
-- **Pipeline order** (`api/index.ts`): `withCORS` → `withOpenAPI` →
-  `withSupabase` → handler. CORS is outermost so every response carries CORS
-  headers, including ones that short-circuit above the auth gate. `withOpenAPI`
-  runs before `withSupabase` so the document is public and undeclared paths 404
-  before reaching the auth gate.
+  (`export default { fetch: pipeline(...) }`). No HTTP framework: `pipeline`
+  from `@supabase/middleware` composes two layers around a single handler, and
+  `withOpenApi` from `jsr:@croutonian/with-openapi` is the router.
+- **Pipeline order** (`api/index.ts`): `withOpenApi` → `withSupabase` → handler.
+  `withOpenApi` is outermost, so `/openapi.json` and `/reference` are answered
+  above the gate and are genuinely public -- no credential is read for them, and
+  a bad one is not grounds to refuse them. Routing and body validation therefore
+  run before authentication: an unauthenticated caller sending a malformed body
+  gets a 400 naming the violation rather than a 401. That is the price of the
+  order, and it is a small one, because the document publishes that schema
+  anyway.
 - **Purpose**: Server-only tasks (monitor checks, notifications)
 - **Endpoints**:
-  - `POST /functions/v1/api/check-endpoint` - Execute a monitor check
-    (`auth: ['user', 'secret']` -- pg_cron presents a secret key, the dashboard
-    presents the caller's JWT)
+  - `POST /functions/v1/api/check-endpoint` - Execute a monitor check (pg_cron
+    presents a secret key, the dashboard presents the caller's JWT; an anonymous
+    caller is refused by the gate)
   - `GET /functions/v1/api/openapi.json` - The OpenAPI 3.1 document (public;
     serving it also proves the function is up). There is no `/status` route;
     this replaced it.
+  - `GET /functions/v1/api/reference` - Scalar API reference, rendered from the
+    same document. Both this and `/openapi.json` are answered by `withOpenApi`
+    ahead of route matching, so neither needs to be a real route.
 
 ### Database Schema
 
@@ -193,26 +199,59 @@ flags.
 ### Authentication & Authorization
 
 - **Frontend**: Uses Supabase Auth with email/password
-- **Edge Function**: `withSupabase` auth modes. `user` verifies the JWT against
-  the local JWKS; `secret` matches an `sb_secret_` key in the `apikey` header.
-  `ctx.authMode` tells the handler which matched -- in `user` mode the verified
-  subject replaces any `user_id` in the request body, so a caller cannot check
-  someone else's monitor. `/openapi.json` never reaches this layer at all,
-  because `withOpenAPI` answers it first.
+- **Edge Function**:
+  `withSupabase({ auth: ['user', 'secret'], cors: 'disabled' })`. `user`
+  verifies the JWT against the local JWKS; `secret` matches an `sb_secret_` key
+  in the `apikey` header. There is no third mode: `none` used to be there only
+  so `/openapi.json` could be served from below the gate, and serving it above
+  the gate instead removed the reason. Every route the gate now covers requires
+  a credential, so an anonymous `/check-endpoint` request is refused by the gate
+  rather than by a guard clause in the handler. `ctx.authMode` tells the handler
+  which mode matched -- in `user` mode the verified subject replaces any
+  `user_id` in the request body, so a caller cannot check someone else's
+  monitor. Note the client/`user_id` branches below test for `'secret'`
+  positively, so a mode added to the config later fails closed.
 - **Database**: RLS policies ensure users only access their own data
-- **CORS**: `withCORS` (built with `defineMiddleware`) is the outermost layer.
-  It answers preflights itself and otherwise only _backfills_ headers on the way
-  out, so `withSupabase`'s own CORS handling wins where it applies. It exists
-  because `withOpenAPI` short-circuits above the auth gate and shipped answering
-  200 with no `Access-Control-Allow-Origin`, which made the status badge read
-  "Disconnected" on every Vercel preview while the API was healthy. The header
-  set is the canonical one from `@supabase/supabase-js/cors` -- a wildcard
-  origin. CORS is not the access control here; credentials are.
-- **Routing**: `withOpenAPI` (also built with `defineMiddleware`) serves the
-  document and rejects any path it does not declare. `document.paths` is the
-  route table, so there is no second list to drift from it. Typed with
-  `openapi3-ts` (`OpenAPIObject`, type-only import, no cold-start cost). Adding
-  an endpoint means declaring it in `_shared/openapi-document.ts`.
+- **CORS**: entirely `withOpenApi`'s job, which is why `withSupabase` is
+  configured `cors: 'disabled'` -- one layer stamps headers, so the two cannot
+  disagree. It has to be the outermost layer: nothing below sees a request that
+  layer answers itself, so the document, the reference page and every refusal
+  would otherwise reach a browser with no headers at all. Most of the policy is
+  read off the document -- `Access-Control-Allow-Methods` is the operations a
+  path declares, so a preflight for `/check-endpoint` advertises `POST` and not
+  the blanket verb list `withSupabase` used to send. `origin` is the one thing a
+  document cannot say and is set to `*`, as before; CORS is not the access
+  control here, credentials are. `PLATFORM_CORS_HEADERS` in `api/index.ts` adds
+  the request headers the platform makes callers send (`apikey`, the bearer,
+  `content-type`, and supabase-js's `x-client-info` / retry / trace headers) on
+  top of the per-operation set, because those belong to the gateway rather than
+  to any operation -- without them the status badge's own preflight fails, since
+  `/openapi.json` declares `security: []` and so derives neither credential
+  header. `exposedHeaders` carries over one thing withSupabase's handling used
+  to do on its own: `x-supabase-server-error` is where the gate names its
+  refusal (`MISSING_CREDENTIALS` and friends), and a non-safelisted response
+  header is unreadable cross-origin unless it is listed.
+- **Routing and request validation**: `withOpenApi` from
+  `jsr:@croutonian/with-openapi`. `document.paths` is the route table, so there
+  is no second list to drift from it: an undeclared path is a 404, an undeclared
+  method a 405 with an `Allow` header. It also checks each request against the
+  matched operation, so a `/check-endpoint` body that is not JSON, omits
+  `monitor_id`, or spells it as something other than a uuid is answered 400
+  before the handler runs -- the handler reads the parsed body off
+  `ctx.openapi.body` rather than re-deriving those checks. Adding an endpoint,
+  or tightening what one accepts, means editing `_shared/openapi-document.ts`.
+  Two pieces of config are _not_ in the document and have to be kept in step
+  with it by hand. `basePath` is `/api` -- the mount as the _worker_ sees it,
+  which is deliberately **not** `servers[0].url`: the platform routes on the
+  public `/functions/v1/api/<path>`, strips `/functions/v1`, and hands the
+  function `/api/<path>`. `servers[0].url` describes the public prefix and is
+  right to keep, but setting `basePath` to the same string 404s every request,
+  preflights included, because nothing the worker sees starts with it. The
+  `reference` paths are the second: matched against the whole pathname before
+  `basePath` is stripped, so they repeat `/api` themselves. Both are covered by
+  `api/index_test.ts`, which builds its requests from the path the worker
+  receives rather than the URL a caller types -- testing the public form is
+  exactly how the wrong `basePath` passed locally and 404d in production.
 - **Client privilege**: the handler picks the client by mode -- `ctx.supabase`
   (RLS-scoped) for a user, `ctx.supabaseAdmin` for cron, which has no
   `auth.uid()` to scope by. So a user's own policies are a backstop and the
@@ -285,11 +324,11 @@ supabase/
     database.types.ts    - Generated types (deno task db:gen-types)
   functions/
     deno.json       - import map (Deno workspace member)
-    api/index.ts    - the pipeline: cors -> openapi -> auth gate -> handler
+    api/index.ts    - the pipeline: auth gate -> openapi -> handler
+    api/index_test.ts - pipeline-level tests (gate/routing/CORS wiring)
     _shared/
-      with-cors.ts         - outermost CORS layer
-      with-openapi.ts      - route table + document middleware
-      openapi-document.ts  - the OpenAPI document (also the route table)
+      openapi-document.ts  - the OpenAPI document (also the route table
+                             and the request schema)
       monitor.ts           - fetch, pattern matching, check logging
       notifications.ts     - email/SMS dispatch and notification logging
       sms-service.ts       - Twilio transport with retry

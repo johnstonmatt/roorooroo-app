@@ -1,11 +1,5 @@
 import type { OpenAPIObject } from "openapi3-ts/oas31";
 
-/**
- * The API description served at /api/openapi.json.
- *
- * This is not decoration: `paths` is the route table withOpenAPI enforces, so
- * an endpoint that is not declared here is not reachable.
- */
 /** The commit this deployment was built from, short form. */
 export function resolveVersion(): string {
   return Deno.env.get("CURRENT_SHA")?.slice(0, 7) || "v0.0.0";
@@ -25,6 +19,15 @@ export function resolveEnvironment(): string {
     (Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "development");
 }
 
+/**
+ * The API description served at /api/openapi.json.
+ *
+ * This is not decoration. withOpenApi reads it three ways: `paths` is the
+ * route table, so an endpoint not declared here is not reachable; each
+ * operation's `requestBody` schema is enforced against the real request before
+ * the handler runs; and the whole document is what the Scalar page at
+ * /api/reference renders. Loosen a schema here and you loosen the API.
+ */
 export const apiDocument: OpenAPIObject = {
   openapi: "3.1.0",
   info: {
@@ -113,13 +116,18 @@ export const apiDocument: OpenAPIObject = {
       get: {
         summary: "This document",
         description:
-          "Public. Serving it also proves the function is deployed and running.",
+          "Public without qualification: withOpenApi answers it above the " +
+          "auth gate, so no credential is read and a bad one is not grounds " +
+          "to refuse it. Serving it also proves the function is deployed and " +
+          "running. Declared here for the reader -- the middleware serves it " +
+          "ahead of route matching either way, as it does the Scalar " +
+          "reference page at /reference, which has no entry of its own.",
         security: [],
         responses: {
           "200": {
             description: "The OpenAPI document",
             content: {
-              "application/openapi+json": { schema: { type: "object" } },
+              "application/json": { schema: { type: "object" } },
             },
           },
         },

@@ -174,9 +174,8 @@ supabase/
   db/database.types.ts    Generated types (deno task db:gen-types)
   functions/
     deno.json             Import map (Deno workspace member)
-    api/index.ts          The pipeline: CORS -> OpenAPI -> auth gate -> handler
+    api/index.ts          The pipeline: auth gate -> OpenAPI -> handler
     _shared/
-      with-cors.ts        Outermost CORS layer
       with-openapi.ts     Route table + document middleware
       openapi-document.ts The OpenAPI document (also the route table)
       monitor.ts          Fetch, pattern matching, check logging
@@ -225,10 +224,10 @@ flowchart TD
   served by any static host. All app data access uses the Supabase client in the
   browser under RLS.
 - Edge Function: one function, `api`, composed as a middleware pipeline —
-  `withCORS` → `withOpenAPI` → `withSupabase` → handler. CORS is outermost so
-  short‑circuiting layers above the auth gate still return CORS headers;
-  `withOpenAPI` runs before the auth gate so the document stays public and
-  undeclared paths 404 before authentication.
+  `withSupabase` → `withOpenAPI` → handler. The auth gate is outermost, so its
+  CORS handling covers every response and no separate CORS layer is needed;
+  `auth` includes `none` so the OpenAPI document is reachable from below the
+  gate, and the handler refuses `none` so `/check-endpoint` stays private.
 - DB: RLS‑secured Postgres tables. `pg_cron` schedules a `pg_net` HTTP POST per
   monitor; the cron command resolves the URL and headers at run time via
   `_get_monitor_check_url()` and `_get_cron_headers()`.

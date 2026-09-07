@@ -33,7 +33,8 @@ export async function apiClient(
   // Get the current session for authentication
   const { data: { session } } = await supabase.auth.getSession();
 
-  // Single "api" function; `endpoint` is a route within it (e.g. "/status").
+  // Single "api" function; `endpoint` is a route within it (e.g.
+  // "/openapi.json").
   // Derived from the Supabase URL rather than configured separately: auth and
   // the Edge Function must come from the SAME project, because the function
   // verifies the browser's JWT against that project's JWKS and a token minted
@@ -90,9 +91,11 @@ export async function apiClient(
 
     // Handle empty responses (like DELETE requests).
     // Match structured JSON suffixes too (RFC 6839), not just
-    // application/json: the OpenAPI document is served as
-    // application/openapi+json, and a plain substring check silently
-    // returned null for it.
+    // application/json: the OpenAPI document was once served as
+    // application/openapi+json, and a plain substring check silently returned
+    // null for it -- which the status badge rendered as "Disconnected". It is
+    // application/json now that withOpenApi serves it, but the media type is
+    // the middleware's to choose, so the check stays as wide as the RFC.
     const contentType = response.headers.get("content-type") ?? "";
     if (/^application\/([\w.+-]+\+)?json\b/i.test(contentType)) {
       return await response.json();
