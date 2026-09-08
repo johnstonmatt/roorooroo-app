@@ -119,6 +119,13 @@ function checkResponse(args: {
 const BASE_PATH = "/api";
 
 /**
+ * The same mount as a caller's browser spells it, before the platform strips
+ * anything -- which is exactly what `servers[0].url` means, so it is read from
+ * the document rather than written down a second time.
+ */
+const PUBLIC_PREFIX = apiDocument.servers?.[0]?.url ?? "/functions/v1/api";
+
+/**
  * Request headers allowed on every route, on top of the ones withOpenApi
  * derives from each operation.
  *
@@ -159,6 +166,14 @@ export default {
         reference: {
           path: `${BASE_PATH}/reference`,
           documentPath: `${BASE_PATH}/openapi.json`,
+          // documentPath does double duty: the path this middleware matches to
+          // serve the JSON, and the URL it writes into the page for the
+          // browser to fetch. Those are one string only when nothing rewrites
+          // the path in front of the worker, and here the gateway strips
+          // /functions/v1 -- so the browser has to be sent the public
+          // spelling. Left derived, Scalar renders and then reports "Document
+          // could not be loaded" against a 404 it never shows you.
+          configuration: { url: `${PUBLIC_PREFIX}/openapi.json` },
         },
         // Who may call an API is the one thing its description does not say,
         // so `origin` is the only part of this not derived. Wildcard, as

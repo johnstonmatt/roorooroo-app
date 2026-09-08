@@ -1,17 +1,14 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@croutonian/with-openapi@0.2": "0.2.0",
     "jsr:@hono/hono@4.9.8": "4.9.8",
     "jsr:@hono/hono@^4.6.3": "4.9.8",
     "jsr:@std/assert@1": "1.0.14",
     "jsr:@std/assert@1.0.14": "1.0.14",
     "jsr:@std/internal@^1.0.10": "1.0.10",
     "jsr:@supabase/supabase-js@^2.45.4": "2.57.4",
-    "npm:@cfworker/json-schema@^4.1.1": "4.1.1",
     "npm:@supabase/auth-js@2.71.1": "2.71.1",
     "npm:@supabase/functions-js@2.4.6": "2.4.6",
-    "npm:@supabase/middleware@0.5": "0.5.0",
     "npm:@supabase/middleware@0.5.0": "0.5.0",
     "npm:@supabase/node-fetch@2.6.15": "2.6.15",
     "npm:@supabase/postgrest-js@1.21.4": "1.21.4",
@@ -21,18 +18,9 @@
     "npm:@supabase/supabase-js@2": "2.115.0",
     "npm:concurrently@*": "9.2.1",
     "npm:openapi3-ts@4.6.1": "4.6.1",
-    "npm:openapi3-ts@^4.6.1": "4.6.1",
     "npm:resend@6.1.2": "6.1.2"
   },
   "jsr": {
-    "@croutonian/with-openapi@0.2.0": {
-      "integrity": "f724a7b73da824029226077c0a2d983e40636142967a2068fcad032d1e3954a0",
-      "dependencies": [
-        "npm:@cfworker/json-schema",
-        "npm:@supabase/middleware@0.5",
-        "npm:openapi3-ts@^4.6.1"
-      ]
-    },
     "@hono/hono@4.9.8": {
       "integrity": "908150f13e90181a051a3af3bf15203aff00190682afedfd38824d0cb9299a95"
     },
@@ -58,9 +46,6 @@
     }
   },
   "npm": {
-    "@cfworker/json-schema@4.1.1": {
-      "integrity": "sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og=="
-    },
     "@supabase/auth-js@2.115.0": {
       "integrity": "sha512-YNQlQWm1H0gsXHSY8Jd/xepBhjO0Zhwx04iW17A83/joQ5kFiUin6iPj9s9kZZvupnwLjXVP/diTFiLz2jUbwQ==",
       "dependencies": [
@@ -351,7 +336,7 @@
     "members": {
       "supabase/functions": {
         "dependencies": [
-          "jsr:@croutonian/with-openapi@0.2",
+          "jsr:@croutonian/with-openapi@0.3",
           "npm:@supabase/middleware@0.5.0",
           "npm:@supabase/server@1.6.0-beta.0",
           "npm:@supabase/supabase-js@2",

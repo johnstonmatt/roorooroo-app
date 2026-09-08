@@ -248,10 +248,15 @@ flags.
   right to keep, but setting `basePath` to the same string 404s every request,
   preflights included, because nothing the worker sees starts with it. The
   `reference` paths are the second: matched against the whole pathname before
-  `basePath` is stripped, so they repeat `/api` themselves. Both are covered by
-  `api/index_test.ts`, which builds its requests from the path the worker
-  receives rather than the URL a caller types -- testing the public form is
-  exactly how the wrong `basePath` passed locally and 404d in production.
+  `basePath` is stripped, so they repeat `/api` themselves -- and
+  `reference.configuration.url` has to be set back to the **public** spelling,
+  because `documentPath` is both the path the middleware serves the JSON at and
+  the URL it writes into the page for a browser to fetch. Those differ by the
+  stripped prefix, and left derived the page loads and then reports "Document
+  could not be loaded". Both are covered by `api/index_test.ts`, which builds
+  its requests from the path the worker receives rather than the URL a caller
+  types -- testing the public form is exactly how the wrong `basePath` passed
+  locally and 404d in production.
 - **Client privilege**: the handler picks the client by mode -- `ctx.supabase`
   (RLS-scoped) for a user, `ctx.supabaseAdmin` for cron, which has no
   `auth.uid()` to scope by. So a user's own policies are a backstop and the
