@@ -33,7 +33,7 @@ import { pipeline } from "@supabase/middleware";
 import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
 import { logger } from "../_shared/config.ts";
-import { api } from "../_shared/openapi-document.ts";
+import { apiDocument } from "../_shared/openapi-document.ts";
 import {
   type CheckResult,
   getNotificationSpec,
@@ -129,7 +129,7 @@ const BASE_PATH = "/api";
  * `servers` entry and this stops compiling instead of silently falling back to
  * a hard-coded copy of it.
  */
-const PUBLIC_PREFIX = api.document.servers[0].url;
+const PUBLIC_PREFIX = apiDocument.servers[0].url;
 
 /**
  * Request headers allowed on every route, on top of the ones withOpenApi
@@ -161,7 +161,7 @@ export default {
   fetch: pipeline(
     [
       withOpenApi({
-        document: api.document,
+        document: apiDocument,
         basePath: BASE_PATH,
         // Reference paths are matched against the whole pathname, before
         // basePath is stripped, so they repeat BASE_PATH themselves. The
