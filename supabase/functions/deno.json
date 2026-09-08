@@ -1,6 +1,6 @@
 {
   "imports": {
-    "@croutonian/with-openapi": "file:///Users/m/dev/croutonian/with-openapi/dist/index.js",
+    "@croutonian/with-openapi": "jsr:@croutonian/with-openapi@0.4.0",
     "@supabase/server": "npm:@supabase/server@1.6.0-beta.0",
     "@supabase/middleware": "npm:@supabase/middleware@0.5.0",
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
