@@ -197,7 +197,7 @@ export default {
       // on responses whose route accepts one verb.
       withSupabase<Database>({ auth: ["user", "secret"], cors: "disabled" }),
     ],
-    async (_req, ctx) => {
+    async (req, ctx) => {
       try {
         // Least privilege per caller: a user gets the RLS-scoped client,
         // cron gets the admin one. Cron has no auth.uid() to scope by and
@@ -214,19 +214,14 @@ export default {
           ? ctx.supabaseAdmin
           : ctx.supabase;
 
-        // Not a path a request can take: onUnknownRoute and onUnknownMethod
-        // both default to "reject", so withOpenApi answered anything it could
-        // not match before this ran. It is here to narrow the union.
-        if (!ctx.openapi.matched) {
-          return errorResponse(404, "Not Found");
-        }
-
-        // Read, parsed and checked against the document upstream -- a body
-        // that is not JSON, omits monitor_id, or spells it as something other
-        // than a uuid was already answered 400, naming the violation. The cast
-        // is the one thing the document cannot supply: a schema is data, so
-        // ctx.openapi.body is `unknown` by construction.
-        const body = ctx.openapi.body as RequestBody;
+        // No try/catch and no shape check: withOpenApi validated this body
+        // against the document upstream, so a body that is not JSON, omits
+        // monitor_id, or spells it as something other than a uuid was already
+        // answered 400 naming the violation. Reading it here rather than off
+        // ctx costs a second parse of bytes the framework has already
+        // buffered, and saves narrowing a union whose other branch this
+        // handler cannot be reached through.
+        const body = await req.json() as RequestBody;
 
         // The security rule: a user-mode caller is pinned to the subject in
         // their verified JWT, and any user_id in the body is discarded. Only

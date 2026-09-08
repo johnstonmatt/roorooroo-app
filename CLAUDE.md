@@ -79,6 +79,21 @@ deno task db:unsafe-nuke
 
 `db:gen-types` and `db:unsafe-nuke` hard-code this project's ref in `deno.json`.
 
+Repo-level Deno settings such as `minimumDependencyAge` belong in **both**
+`deno.json` files. Locally `supabase/functions` is a workspace member, and Deno
+reads those keys only from the workspace root, so a copy there alone does
+nothing for `deno task`. At deploy time there is no workspace and
+`supabase/functions/deno.json` is the config root, so a copy at the repo root
+alone does nothing for the deployed function. Neither placement covers the
+other.
+
+Deno warns
+`"minimumDependencyAge" field can only be specified in the workspace
+root deno.json file`
+on every local invocation because of the member copy. That warning is correct
+about the local workspace and wrong about deployment -- do not resolve it by
+deleting the key.
+
 ### Setup wizards
 
 ```bash
@@ -237,18 +252,20 @@ flags.
   method a 405 with an `Allow` header. It also checks each request against the
   matched operation, so a `/check-endpoint` body that is not JSON, omits
   `monitor_id`, or spells it as something other than a uuid is answered 400
-  before the handler runs -- the handler reads the parsed body off
-  `ctx.openapi.body` rather than re-deriving those checks. Adding an endpoint,
-  or tightening what one accepts, means editing `_shared/openapi-document.ts`.
-  Two pieces of config are _not_ in the document and have to be kept in step
-  with it by hand. `basePath` is `/api` -- the mount as the _worker_ sees it,
-  which is deliberately **not** `servers[0].url`: the platform routes on the
-  public `/functions/v1/api/<path>`, strips `/functions/v1`, and hands the
-  function `/api/<path>`. `servers[0].url` describes the public prefix and is
-  right to keep, but setting `basePath` to the same string 404s every request,
-  preflights included, because nothing the worker sees starts with it. The
-  `reference` paths are the second: matched against the whole pathname before
-  `basePath` is stripped, so they repeat `/api` themselves -- and
+  before the handler runs. The handler then reads the body with `req.json()` and
+  does not re-derive those checks: the framework buffers the request, so reading
+  it upstream does not consume it, and a body that reached the handler at all
+  has already been vouched for. Adding an endpoint, or tightening what one
+  accepts, means editing `_shared/openapi-document.ts`. Two pieces of config are
+  _not_ in the document and have to be kept in step with it by hand. `basePath`
+  is `/api` -- the mount as the _worker_ sees it, which is deliberately **not**
+  `servers[0].url`: the platform routes on the public
+  `/functions/v1/api/<path>`, strips `/functions/v1`, and hands the function
+  `/api/<path>`. `servers[0].url` describes the public prefix and is right to
+  keep, but setting `basePath` to the same string 404s every request, preflights
+  included, because nothing the worker sees starts with it. The `reference`
+  paths are the second: matched against the whole pathname before `basePath` is
+  stripped, so they repeat `/api` themselves -- and
   `reference.configuration.url` has to be set back to the **public** spelling,
   because `documentPath` is both the path the middleware serves the JSON at and
   the URL it writes into the page for a browser to fetch. Those differ by the
@@ -328,7 +345,8 @@ supabase/
   db/
     database.types.ts    - Generated types (deno task db:gen-types)
   functions/
-    deno.json       - import map (Deno workspace member)
+    deno.json       - import map; a workspace member locally, but the config
+                      ROOT at deploy time
     api/index.ts    - the pipeline: auth gate -> openapi -> handler
     api/index_test.ts - pipeline-level tests (gate/routing/CORS wiring)
     _shared/

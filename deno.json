@@ -43,5 +43,6 @@
       "frontend/pnpm-lock.yaml",
       "frontend/pnpm-workspace.yaml"
     ]
-  }
+  },
+  "minimumDependencyAge": 0
 }
