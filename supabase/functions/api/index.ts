@@ -33,7 +33,7 @@ import { pipeline } from "@supabase/middleware";
 import { withSupabase } from "@supabase/server";
 import type { Database } from "../../db/database.types.ts";
 import { logger } from "../_shared/config.ts";
-import { apiDocument } from "../_shared/openapi-document.ts";
+import { api } from "../_shared/openapi-document.ts";
 import {
   type CheckResult,
   getNotificationSpec,
@@ -122,8 +122,14 @@ const BASE_PATH = "/api";
  * The same mount as a caller's browser spells it, before the platform strips
  * anything -- which is exactly what `servers[0].url` means, so it is read from
  * the document rather than written down a second time.
+ *
+ * No `?? "/functions/v1/api"` fallback any more: the document keeps its
+ * literal type through OpenAPIInterface, so this *is* the string
+ * "/functions/v1/api" as far as the compiler is concerned. Delete the
+ * `servers` entry and this stops compiling instead of silently falling back to
+ * a hard-coded copy of it.
  */
-const PUBLIC_PREFIX = apiDocument.servers?.[0]?.url ?? "/functions/v1/api";
+const PUBLIC_PREFIX = api.document.servers[0].url;
 
 /**
  * Request headers allowed on every route, on top of the ones withOpenApi
@@ -155,7 +161,7 @@ export default {
   fetch: pipeline(
     [
       withOpenApi({
-        document: apiDocument,
+        document: api.document,
         basePath: BASE_PATH,
         // Reference paths are matched against the whole pathname, before
         // basePath is stripped, so they repeat BASE_PATH themselves. The

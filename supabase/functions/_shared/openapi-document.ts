@@ -1,4 +1,4 @@
-import type { OpenAPIObject } from "openapi3-ts/oas31";
+import { OpenAPIInterface } from "@croutonian/with-openapi";
 
 /** The commit this deployment was built from, short form. */
 export function resolveVersion(): string {
@@ -27,8 +27,19 @@ export function resolveEnvironment(): string {
  * operation's `requestBody` schema is enforced against the real request before
  * the handler runs; and the whole document is what the Scalar page at
  * /api/reference renders. Loosen a schema here and you loosen the API.
+ *
+ * Wrapped in `OpenAPIInterface` rather than annotated `: OpenAPIObject`. The
+ * annotation would widen `paths` to an index signature before anything could
+ * read it, which is why the wrapper takes the literal as a `const` type
+ * parameter instead -- the route names and every schema below stay part of the
+ * type, and `api.document.servers[0].url` is the string it says rather than
+ * `string | undefined`.
+ *
+ * The wrapper does not mount anything. `withOpenApi` is still what the
+ * pipeline composes, taking `api.document`; this only exists so the document's
+ * type survives being read.
  */
-export const apiDocument: OpenAPIObject = {
+export const api = new OpenAPIInterface({
   openapi: "3.1.0",
   info: {
     title: "RooRooRoo API",
@@ -187,4 +198,4 @@ export const apiDocument: OpenAPIObject = {
       },
     },
   },
-};
+});

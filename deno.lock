@@ -1,7 +1,6 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@croutonian/with-openapi@0.3": "0.3.0",
     "jsr:@hono/hono@4.9.8": "4.9.8",
     "jsr:@hono/hono@^4.6.3": "4.9.8",
     "jsr:@std/assert@1": "1.0.14",
@@ -11,7 +10,6 @@
     "npm:@cfworker/json-schema@^4.1.1": "4.1.1",
     "npm:@supabase/auth-js@2.71.1": "2.71.1",
     "npm:@supabase/functions-js@2.4.6": "2.4.6",
-    "npm:@supabase/middleware@0.5": "0.5.0",
     "npm:@supabase/middleware@0.5.0": "0.5.0",
     "npm:@supabase/node-fetch@2.6.15": "2.6.15",
     "npm:@supabase/postgrest-js@1.21.4": "1.21.4",
@@ -21,18 +19,9 @@
     "npm:@supabase/supabase-js@2": "2.115.0",
     "npm:concurrently@*": "9.2.1",
     "npm:openapi3-ts@4.6.1": "4.6.1",
-    "npm:openapi3-ts@^4.6.1": "4.6.1",
     "npm:resend@6.1.2": "6.1.2"
   },
   "jsr": {
-    "@croutonian/with-openapi@0.3.0": {
-      "integrity": "3af8d6b45a23f794f9e4728ec19c84d78cbfd071f387fc4e4dcd2048a7ea5082",
-      "dependencies": [
-        "npm:@cfworker/json-schema",
-        "npm:@supabase/middleware@0.5",
-        "npm:openapi3-ts@^4.6.1"
-      ]
-    },
     "@hono/hono@4.9.8": {
       "integrity": "908150f13e90181a051a3af3bf15203aff00190682afedfd38824d0cb9299a95"
     },
@@ -348,10 +337,15 @@
     }
   },
   "workspace": {
+    "dependencies": [
+      "npm:@cfworker/json-schema@^4.1.1",
+      "npm:@supabase/middleware@0.5.0",
+      "npm:openapi3-ts@4.6.1"
+    ],
     "members": {
       "supabase/functions": {
         "dependencies": [
-          "jsr:@croutonian/with-openapi@0.3",
+          "npm:@cfworker/json-schema@^4.1.1",
           "npm:@supabase/middleware@0.5.0",
           "npm:@supabase/server@1.6.0-beta.0",
           "npm:@supabase/supabase-js@2",
