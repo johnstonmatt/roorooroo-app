@@ -1,4 +1,4 @@
-import type { OpenAPIObject } from "openapi3-ts/oas31";
+import { defineDocument } from "@croutonian/with-openapi";
 
 /** The commit this deployment was built from, short form. */
 export function resolveVersion(): string {
@@ -27,8 +27,15 @@ export function resolveEnvironment(): string {
  * operation's `requestBody` schema is enforced against the real request before
  * the handler runs; and the whole document is what the Scalar page at
  * /api/reference renders. Loosen a schema here and you loosen the API.
+ *
+ * Passed through `defineDocument` rather than annotated `: OpenAPIObject`.
+ * The annotation would widen `paths` to an index signature before anything
+ * could read it; the identity function's `const` type parameter keeps the
+ * route names and every schema below as part of the type. That is what lets
+ * `withOpenApi` narrow `ctx.openapi` to this document's own operations, and
+ * what makes `servers[0].url` the string it says rather than `string`.
  */
-export const apiDocument: OpenAPIObject = {
+export const apiDocument = defineDocument({
   openapi: "3.1.0",
   info: {
     title: "RooRooRoo API",
@@ -187,4 +194,4 @@ export const apiDocument: OpenAPIObject = {
       },
     },
   },
-};
+});

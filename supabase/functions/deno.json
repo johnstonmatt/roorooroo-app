@@ -1,12 +1,13 @@
 {
   "imports": {
-    "@croutonian/with-openapi": "jsr:@croutonian/with-openapi@^0.3.0",
+    "@croutonian/with-openapi": "jsr:@croutonian/with-openapi@0.4.0",
     "@supabase/server": "npm:@supabase/server@1.6.0-beta.0",
     "@supabase/middleware": "npm:@supabase/middleware@0.5.0",
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
     "resend": "npm:resend@6.1.2",
     "openapi3-ts/oas31": "npm:openapi3-ts@4.6.1/oas31",
-    "@supabase/supabase-js/cors": "npm:@supabase/supabase-js@2/cors"
+    "@supabase/supabase-js/cors": "npm:@supabase/supabase-js@2/cors",
+    "@cfworker/json-schema": "npm:@cfworker/json-schema@^4.1.1"
   },
   "minimumDependencyAge": 0
 }
